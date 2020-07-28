@@ -10,8 +10,10 @@ from pyqodeng.core import panels
 
 import pyvex
 from angr.analyses.decompiler.structured_codegen import CBinaryOp, CFunctionCall
+from angr.analyses.viscosity.viscosity import Viscosity
 
 from ..widgets.qccode_highlighter import QCCodeHighlighter
+from ..dialogs.ccode_edit_atom import CCodeEditAtom
 
 if TYPE_CHECKING:
     from ..documents.qcodedocument import QCodeDocument
@@ -140,6 +142,27 @@ class QCCodeEdit(api.CodeEdit):
 
     def _initialize_context_menus(self):
 
+        # remove statement
+        remove_stmt = QAction("&Remove statement", self)
+        remove_stmt.triggered.connect(self._on_remove_stmt_clicked)
+
+        # operator
+        edit_operator = QAction("&Edit operator", self)
+        edit_operator.triggered.connect(self._on_edit_operator_clicked)
+
+        # constant
+        edit_constant = QAction("&Edit constant", self)
+        edit_constant.triggered.connect(self._on_edit_constant_clicked)
+
+        self.operator_actions = [
+            edit_operator,
+            self._separator(),
+        ]
+        self.call_actions = [
+            remove_stmt,
+            self._separator(),
+        ]
+
         base_actions = [
             self._separator(),
             self.action_copy,
@@ -151,3 +174,42 @@ class QCCodeEdit(api.CodeEdit):
         self.call_actions += base_actions
         self.selected_actions += base_actions
         self.default_actions += base_actions
+
+    #
+    # Actions
+    #
+
+    def _on_edit_operator_clicked(self):
+        dialog = CCodeEditAtom(self._code_view.workspace.instance, self._selected_node)
+        dialog.exec_()
+
+    def _on_edit_constant_clicked(self):
+        dialog = CCodeEditAtom(self._code_view.workspace.instance, self._selected_node)
+        dialog.exec_()
+
+    def _on_remove_stmt_clicked(self):
+        if isinstance(self._selected_node, CFunctionCall):
+            proj = self._code_view.workspace.instance.project
+            block = proj.factory.block(self._selected_node.tags['vex_block_addr'], cross_insn_opt=False)
+            vex_block_copy = block.vex.copy()
+
+            # remove all statements that correspond to the ins_addr
+            start_idx = [i for i, stmt in enumerate(vex_block_copy.statements)
+                   if isinstance(stmt, pyvex.stmt.IMark) and stmt.addr == self._selected_node.tags['ins_addr']][0]
+            try:
+                end_idx = next(iter(i for i, stmt in enumerate(vex_block_copy.statements)
+                       if isinstance(stmt, pyvex.stmt.IMark) and stmt.addr > self._selected_node.tags['ins_addr']))
+            except StopIteration:
+                end_idx = None
+
+            if end_idx is not None:
+                vex_block_copy.statements = vex_block_copy.statements[:start_idx] + vex_block_copy[end_idx:]
+            else:
+                vex_block_copy.statements = vex_block_copy.statements[:start_idx]
+
+            v = proj.analyses.Viscosity(block, vex_block_copy)
+            if v.result:
+                for edit in v.result:
+                    patch = Viscosity.edit_to_patch(edit, proj)
+                    self._code_view.workspace.instance.kb.patches.add_patch_obj(patch)
+                self._code_view.workspace.instance.patches.am_event()
