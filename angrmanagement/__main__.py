@@ -9,6 +9,11 @@ import warnings
 import platform
 import signal
 
+
+import logging
+logging.basicConfig(level=logging.INFO)
+
+
 def shut_up(*args, **kwargs):
     return
 warnings.simplefilter = shut_up

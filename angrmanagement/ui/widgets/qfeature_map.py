@@ -120,7 +120,7 @@ class FeatureMapItem(QGraphicsItem):
         if isinstance(mr.object, (cle.ExternObject, cle.TLSObject, cle.KernelObject)):
             return 80 # Draw unnecessary objects smaller
         else:
-            l.debug("memory_region.size: %x memory_region.object: %s", mr.size, mr.object)
+            # l.debug("memory_region.size: %x memory_region.object: %s", mr.size, mr.object)
             return mr.size
 
     def _get_pos_from_addr(self, addr: int) -> Optional[int]:

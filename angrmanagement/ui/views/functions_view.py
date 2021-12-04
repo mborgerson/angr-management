@@ -47,7 +47,7 @@ class FunctionsView(BaseView):
             self._function_table.function_manager = self.workspace.instance.kb.functions
 
     def minimumSizeHint(self, *args, **kwargs):
-        return QSize(100, 500)
+        return QSize(200, 500)
 
     def subscribe_func_select(self, callback):
         """

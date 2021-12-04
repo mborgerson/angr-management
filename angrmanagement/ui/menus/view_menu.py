@@ -91,6 +91,7 @@ class ViewMenu(Menu):
             MenuEntry('&Patches', main_window.workspace.show_patches_view),
             MenuEntry('&Types', main_window.workspace.show_types_view),
             MenuEntry('&Functions', main_window.workspace.show_functions_view),
+            MenuEntry('&Registers', main_window.workspace.show_registers_view),
             MenuSeparator(),
             MenuEntry('Symbolic &Execution', main_window.workspace.show_symexec_view),
             MenuEntry('S&ymbolic States', main_window.workspace.show_states_view),

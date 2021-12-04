@@ -2,16 +2,19 @@ from typing import TYPE_CHECKING, Callable
 import logging
 import traceback
 
+from PySide2.QtWidgets import QMessageBox
 from angr.knowledge_plugins.functions.function import Function
 from angr import StateHierarchy
+from angrmanagement.logic.debugger import AvatarGdbDebugger
 
 from ..config import Conf
 from ..data.instance import ObjectContainer
 from ..data.jobs import CodeTaggingJob, PrototypeFindingJob, VariableRecoveryJob, FlirtSignatureRecognitionJob
 from .views import (FunctionsView, DisassemblyView, SymexecView, StatesView, StringsView, ConsoleView, CodeView,
-                    InteractionView, PatchesView, DependencyView, ProximityView, TypesView, HexView, LogView)
+                    InteractionView, PatchesView, DependencyView, ProximityView, TypesView, HexView, LogView, RegistersView, StackView)
 from .view_manager import ViewManager
 from .menus.disasm_insn_context_menu import DisasmInsnContextMenu
+from .dialogs.debugger import StartDebugger
 
 from ..plugins import PluginManager
 
@@ -60,11 +63,13 @@ class Workspace:
             StatesView(self, 'center'),
             InteractionView(self, 'center'),
             ConsoleView(self, 'bottom'),
-            LogView(self, 'bottom'),
+            LogView(self, 'bottom')
         ]
 
         for tab in self.default_tabs:
             self.add_view(tab)
+
+        self.breakpoints = set()
 
     #
     # Properties
@@ -146,6 +151,64 @@ class Workspace:
         )
 
     def _on_prototype_found(self):
+        return # FIXME:
+
+        '''
+        Traceback (most recent call last):
+          File "/home/matt/Work/angr/angr-dev/angr-management/angrmanagement/data/instance.py", line 262, in _worker
+            result = job.run(self)
+          File "/home/matt/Work/angr/angr-dev/angr-management/angrmanagement/data/jobs/variable_recovery.py", line 23, in run
+            inst.project.analyses.CompleteCallingConventions(
+          File "/home/matt/Work/angr/angr-dev/angr/angr/analyses/analysis.py", line 115, in __call__
+            oself.__init__(*args, **kwargs)
+          File "/home/matt/Work/angr/angr-dev/angr/angr/analyses/complete_calling_conventions.py", line 25, in __init__
+            self._analyze()
+          File "/home/matt/Work/angr/angr-dev/angr/angr/analyses/complete_calling_conventions.py", line 56, in _analyze
+            _ = self.project.analyses.VariableRecoveryFast(func, kb=self.kb, low_priority=self._low_priority)
+          File "/home/matt/Work/angr/angr-dev/angr/angr/analyses/analysis.py", line 115, in __call__
+            oself.__init__(*args, **kwargs)
+          File "/home/matt/Work/angr/angr-dev/angr/angr/analyses/variable_recovery/variable_recovery_fast.py", line 205, in __init__
+            self._analyze()
+          File "/home/matt/Work/angr/angr-dev/angr/angr/analyses/forward_analysis/forward_analysis.py", line 234, in _analyze
+            self._analysis_core_graph()
+          File "/home/matt/Work/angr/angr-dev/angr/angr/analyses/forward_analysis/forward_analysis.py", line 253, in _analysis_core_graph
+            changed, output_state = self._run_on_node(n, job_state)
+          File "/home/matt/Work/angr/angr-dev/angr/angr/analyses/variable_recovery/variable_recovery_fast.py", line 321, in _run_on_node
+            self._process_block(state, block)
+          File "/home/matt/Work/angr/angr-dev/angr/angr/analyses/variable_recovery/variable_recovery_fast.py", line 420, in _process_block
+            processor.process(state, block=block, fail_fast=self._fail_fast)
+          File "/home/matt/Work/angr/angr-dev/angr/angr/analyses/variable_recovery/engine_base.py", line 74, in process
+            self._process(state, None, block=kwargs.pop('block', None))
+          File "/home/matt/Work/angr/angr-dev/angr/angr/engines/light/engine.py", line 144, in _process
+            self._process_Stmt(whitelist=whitelist)
+          File "/home/matt/Work/angr/angr-dev/angr/angr/engines/light/engine.py", line 165, in _process_Stmt
+            self._handle_Stmt(stmt)
+          File "/home/matt/Work/angr/angr-dev/angr/angr/engines/light/engine.py", line 193, in _handle_Stmt
+            getattr(self, handler)(stmt)
+          File "/home/matt/Work/angr/angr-dev/angr/angr/analyses/variable_recovery/engine_vex.py", line 30, in _handle_Put
+            self._assign_to_register(offset, r, size)
+          File "/home/matt/Work/angr/angr-dev/angr/angr/analyses/variable_recovery/engine_base.py", line 218, in _assign_to_register
+            self._reference(richr, codeloc, src=src)
+          File "/home/matt/Work/angr/angr-dev/angr/angr/analyses/variable_recovery/engine_base.py", line 156, in _reference
+            vs: Optional[MultiValues] = self.state.stack_region.load(stack_addr, size=1)
+          File "/home/matt/Work/angr/angr-dev/angr/angr/storage/memory_mixins/size_resolution_mixin.py", line 28, in load
+            return super().load(addr, size=out_size, **kwargs)
+          File "/home/matt/Work/angr/angr-dev/angr/angr/storage/memory_mixins/paged_memory/paged_memory_mixin.py", line 130, in load
+            vals.append(page.load(pageoff, size=size, endness=endness, page_addr=pageno*self.page_size, memory=self, cooperate=True, **kwargs))
+          File "/home/matt/Work/angr/angr-dev/angr/angr/storage/memory_mixins/paged_memory/pages/mv_list_page.py", line 65, in load
+            self._fill(result, addr + size, page_addr, endness, memory, **kwargs)
+          File "/home/matt/Work/angr/angr-dev/angr/angr/storage/memory_mixins/paged_memory/pages/mv_list_page.py", line 81, in _fill
+            new_ast = self._default_value(global_start_addr, size, name='%s_%x' % (memory.id, global_start_addr),
+          File "/home/matt/Work/angr/angr-dev/angr/angr/storage/memory_mixins/paged_memory/pages/ispo_mixin.py", line 19, in _default_value
+            return func(*args, **kwargs)
+          File "/home/matt/Work/angr/angr-dev/angr/angr/storage/memory_mixins/__init__.py", line 332, in _default_value
+            return super()._default_value(addr, size, **kwargs)
+          File "/home/matt/Work/angr/angr-dev/angr/angr/storage/memory_mixins/default_filler_mixin.py", line 17, in _default_value
+            bvv = self.state.solver.BVV(mem)
+        AttributeError: 'VariableRecoveryFastState' object has no attribute 'solver'
+
+        '''
+
         self.instance.add_job(
             VariableRecoveryJob(
                 on_finish=self.on_variable_recovered,
@@ -423,6 +486,11 @@ class Workspace:
         self.raise_view(view)
         view.setFocus()
 
+    def show_registers_view(self):
+        view = self._get_or_create_registers_view()
+        self.raise_view(view)
+        view.setFocus()
+
     def show_console_view(self):
         view = self._get_or_create_console_view()
         self.raise_view(view)
@@ -580,6 +648,28 @@ class Workspace:
 
         return view
 
+
+    def _get_or_create_registers_view(self) -> RegistersView:
+        # Take the first registers view
+        view = self.view_manager.first_view_in_category("registers")
+
+        if view is None:
+            view = RegistersView(self, 'right')
+            self.add_view(view)
+
+        return view
+
+
+    def _get_or_create_stack_view(self) -> RegistersView:
+        # Take the first stack view
+        view = self.view_manager.first_view_in_category("stack")
+
+        if view is None:
+            view = StackView(self, 'right')
+            self.add_view(view)
+
+        return view
+
     #
     # UI-related Callback Setters & Manipulation
     #
@@ -630,3 +720,37 @@ class Workspace:
             dv = self.view_manager.current_view_in_category('disassembly')  # type: DisassemblyView
         if dv:
             dv.set_comment_callback = callback
+
+    def start_debugger(self):
+        self._get_or_create_registers_view()
+        self._get_or_create_stack_view()
+
+        dlg = StartDebugger()
+        if not dlg.exec_():
+            return
+
+        # local_binary_command = ['./simple_global']
+
+        dbg = AvatarGdbDebugger(self, remote_host=dlg.host, remote_port=dlg.port)
+        dbg.state_changed.connect(self.debugger_state_changed)
+        dbg.connect_failed.connect(self.show_connect_failed_dialog)
+        self.instance.debugger.am_obj = dbg
+        self.instance.debugger.am_event()
+        dbg.init()
+
+    def debugger_state_changed(self):
+        if not self.instance.debugger.am_none and self.instance.debugger.is_exited:
+            self.instance.debugger.am_obj = None
+            self.instance.debugger.am_event()
+
+    def show_connect_failed_dialog(self):
+        dlg = QMessageBox()
+        dlg.setWindowTitle("Connection failed")
+        dlg.setText("Failed to connect to remote target. Is it running?")
+        dlg.setIcon(QMessageBox.Critical)
+        dlg.setStandardButtons(QMessageBox.Ok)
+        dlg.exec_()
+
+        self.instance.debugger.am_obj = None
+        self.instance.debugger.am_event()
+

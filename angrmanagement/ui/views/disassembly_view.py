@@ -681,6 +681,9 @@ class DisassemblyView(SynchronizedView):
     def find_addr_in_exec(self, addr):
         self.workspace._get_or_create_symexec_view().find_addr_in_exec(addr)
 
+    def add_breakpoint(self, addr):
+        self.workspace.breakpoints.add(addr)
+
     def run_induction_variable_analysis(self):
         if self._flow_graph.induction_variable_analysis:
             self._flow_graph.induction_variable_analysis = None

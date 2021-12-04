@@ -14,6 +14,8 @@ from .object_container import ObjectContainer
 from .log import LogRecord, LogDumpHandler
 from ..logic import GlobalInfo
 from ..logic.threads import gui_thread_schedule_async
+from ..logic.debugger import AvatarGdbDebugger
+
 
 if TYPE_CHECKING:
     from ..ui.workspace import Workspace
@@ -61,6 +63,11 @@ class Instance:
                                 List[Type[ProtocolInteractor]],
                                 'Available interaction protocols')
         self.register_container('log', lambda: [], List[LogRecord], 'Saved log messages')
+        # self.register_container('debugger', lambda: None, Optional[AvatarGdbDebugger], 'Current debugger')
+
+        # FIXME: Handle someone opening a new binary. _reset_containers below
+        #        will be called when a new project is loaded.
+        self.debugger = ObjectContainer(None, 'Current debugger')
 
         self.project.am_subscribe(self.initialize)
 
@@ -275,6 +282,7 @@ class Instance:
         GlobalInfo.main_window.status = status_text
 
     def _refresh_cfg(self, cfg_job):
+        return
         time.sleep(1.0)
         while True:
             if self.cfg is not None:

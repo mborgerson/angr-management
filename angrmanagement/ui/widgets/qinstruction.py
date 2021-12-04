@@ -92,6 +92,10 @@ class QInstruction(QCachedGraphicsItem):
         if self.selected:
             return self._config.disasm_view_node_instruction_selected_background_color
 
+        if self.addr in self.workspace.breakpoints:
+            return Qt.darkRed
+
+
         return None  # None here means transparent, reusing the block color
 
     @property
