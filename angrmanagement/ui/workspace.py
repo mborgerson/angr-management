@@ -9,7 +9,7 @@ from ..config import Conf
 from ..data.instance import ObjectContainer
 from ..data.jobs import CodeTaggingJob, PrototypeFindingJob, VariableRecoveryJob, FlirtSignatureRecognitionJob
 from .views import (FunctionsView, DisassemblyView, SymexecView, StatesView, StringsView, ConsoleView, CodeView,
-                    InteractionView, PatchesView, DependencyView, ProximityView, TypesView, HexView, LogView)
+                    InteractionView, PatchesView, DependencyView, ProximityView, TypesView, HexView, LogView, RegistersView, StackView)
 from .view_manager import ViewManager
 from .menus.disasm_insn_context_menu import DisasmInsnContextMenu
 
@@ -65,6 +65,8 @@ class Workspace:
 
         for tab in self.default_tabs:
             self.add_view(tab)
+
+        self.breakpoints = set()
 
     #
     # Properties
@@ -423,6 +425,11 @@ class Workspace:
         self.raise_view(view)
         view.setFocus()
 
+    def show_registers_view(self):
+        view = self._get_or_create_registers_view()
+        self.raise_view(view)
+        view.setFocus()
+
     def show_console_view(self):
         view = self._get_or_create_console_view()
         self.raise_view(view)
@@ -580,6 +587,28 @@ class Workspace:
 
         return view
 
+
+    def _get_or_create_registers_view(self) -> RegistersView:
+        # Take the first registers view
+        view = self.view_manager.first_view_in_category("registers")
+
+        if view is None:
+            view = RegistersView(self, 'right')
+            self.add_view(view)
+
+        return view
+
+
+    def _get_or_create_stack_view(self) -> RegistersView:
+        # Take the first stack view
+        view = self.view_manager.first_view_in_category("stack")
+
+        if view is None:
+            view = StackView(self, 'right')
+            self.add_view(view)
+
+        return view
+
     #
     # UI-related Callback Setters & Manipulation
     #
@@ -630,3 +659,38 @@ class Workspace:
             dv = self.view_manager.current_view_in_category('disassembly')  # type: DisassemblyView
         if dv:
             dv.set_comment_callback = callback
+
+    def start_debugger(self):
+        self._get_or_create_registers_view()
+        self._get_or_create_stack_view()
+        return
+
+        dlg = StartDebugger()
+        if not dlg.exec_():
+            return
+
+        # local_binary_command = ['./simple_global']
+
+        dbg = AvatarGdbDebugger(self, remote_host=dlg.host, remote_port=dlg.port)
+        dbg.state_changed.connect(self.debugger_state_changed)
+        dbg.connect_failed.connect(self.show_connect_failed_dialog)
+        self.instance.debugger.am_obj = dbg
+        self.instance.debugger.am_event()
+        dbg.init()
+
+    def debugger_state_changed(self):
+        if not self.instance.debugger.am_none and self.instance.debugger.is_exited:
+            self.instance.debugger.am_obj = None
+            self.instance.debugger.am_event()
+
+    def show_connect_failed_dialog(self):
+        dlg = QMessageBox()
+        dlg.setWindowTitle("Connection failed")
+        dlg.setText("Failed to connect to remote target. Is it running?")
+        dlg.setIcon(QMessageBox.Critical)
+        dlg.setStandardButtons(QMessageBox.Ok)
+        dlg.exec_()
+
+        self.instance.debugger.am_obj = None
+        self.instance.debugger.am_event()
+

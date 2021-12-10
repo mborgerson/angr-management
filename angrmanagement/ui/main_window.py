@@ -12,8 +12,7 @@ from PySide2.QtCore import Qt, QSize, QEvent, QTimer, QUrl
 
 import angr
 import angr.flirt
-
-from .toolbar_manager import ToolbarManager
+from angrmanagement.logic.threads import gui_thread_schedule
 
 try:
     from angr.angrdb import AngrDB
@@ -50,7 +49,8 @@ from .dialogs.load_docker_prompt import LoadDockerPrompt, LoadDockerPromptError
 from .dialogs.new_state import NewState
 from .dialogs.about import LoadAboutDialog
 from .dialogs.preferences import Preferences
-from .toolbars import FileToolbar, SimgrToolbar
+from .toolbars import FileToolbar, SimgrToolbar, DebugToolbar
+from .toolbar_manager import ToolbarManager
 
 if TYPE_CHECKING:
     from PySide2.QtWidgets import QApplication
@@ -94,9 +94,9 @@ class MainWindow(QMainWindow):
         self._help_menu = None
         self._plugin_menu = None
 
+        self._init_workspace()
         self._init_toolbars()
         self._init_statusbar()
-        self._init_workspace()
         self._init_menus()
         self._init_plugins()
         self._init_library_docs()
@@ -212,7 +212,7 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(self._progressbar)
 
     def _init_toolbars(self):
-        for cls in (FileToolbar, SimgrToolbar):
+        for cls in (FileToolbar, DebugToolbar):
             self.toolbar_manager.show_toolbar_by_class(cls)
 
     #
@@ -574,6 +574,53 @@ class MainWindow(QMainWindow):
             file_path = file_path + ".adb"
 
         return self._save_database(file_path)
+
+    def load_trace(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Load trace", ".", "bintrace (*.trace)")
+        if not file_path:
+            return
+        self.load_trace_path(file_path)
+
+    def load_trace_path(self, path: str):
+        # Load the trace
+        from bintrace import TraceManager
+        from bintrace.debugger_angr import create_angr_project_from_trace
+        self.workspace.trace = TraceManager()
+        self.workspace.trace.load_trace(path)
+
+        def create_project():
+            # Create a new angr Project based on the trace
+            cfg_args = {
+                'data_references': True,
+                'cross_references': True,
+                'force_complete_scan': False
+            }
+            variable_recovery_args = {
+                'skip_signature_matched_functions': True,
+            }
+            self.workspace.instance._reset_containers()
+            self.workspace.instance.project.am_obj = create_angr_project_from_trace(self.workspace.trace)
+            self.workspace.instance.project.am_event(
+                cfg_args=cfg_args,
+                variable_recovery_args=variable_recovery_args)
+        gui_thread_schedule(create_project, ())
+
+    def start_trace_debugger(self):
+        def create_debugger():
+            # Create the trace debugger
+            from ..logic.debugger import BintraceDebugger
+            dbg = BintraceDebugger(self.workspace.trace, self.workspace)
+            dbg.init()
+
+            self.workspace.instance.debugger_list.append(dbg)
+            self.workspace.instance.debugger_list.am_event()
+
+            # Switch to trace debugger
+            self.workspace.instance.debugger.am_obj = dbg
+            self.workspace.instance.debugger.am_event()
+
+            self.workspace.start_debugger()
+        gui_thread_schedule(create_debugger)
 
     def preferences(self):
 

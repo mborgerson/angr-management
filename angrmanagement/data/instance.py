@@ -61,6 +61,12 @@ class Instance:
                                 List[Type[ProtocolInteractor]],
                                 'Available interaction protocols')
         self.register_container('log', lambda: [], List[LogRecord], 'Saved log messages')
+        # self.register_container('debugger', lambda: None, Optional[AvatarGdbDebugger], 'Current debugger')
+
+        # FIXME: Handle someone opening a new binary. _reset_containers below
+        #        will be called when a new project is loaded.
+        self.debugger = ObjectContainer(None, 'Current debugger')
+        self.debugger_list = ObjectContainer([], 'List of available debuggers')
 
         self.project.am_subscribe(self.initialize)
 
@@ -91,6 +97,11 @@ class Instance:
     #
     # Properties
     #
+
+    def set_debugger(self, debugger):
+        assert debugger is None or debugger in self.debugger_list
+        self.debugger.am_obj = debugger
+        self.debugger.am_event()
 
     @property
     def kb(self) -> Optional[angr.KnowledgeBase]:
