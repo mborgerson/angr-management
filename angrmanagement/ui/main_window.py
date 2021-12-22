@@ -14,6 +14,9 @@ import angr
 import angr.flirt
 from angrmanagement.logic.threads import gui_thread_schedule
 
+from bintrace import TraceManager
+from bintrace.debugger_angr import create_angr_project_from_trace
+
 try:
     from angr.angrdb import AngrDB
 except ImportError:
@@ -583,10 +586,8 @@ class MainWindow(QMainWindow):
 
     def load_trace_path(self, path: str):
         # Load the trace
-        from bintrace import TraceManager
-        from bintrace.debugger_angr import create_angr_project_from_trace
-        self.workspace.trace = TraceManager()
-        self.workspace.trace.load_trace(path)
+        self.workspace.instance.trace.am_obj = TraceManager()
+        self.workspace.instance.trace.load_trace(path)
 
         def create_project():
             # Create a new angr Project based on the trace
@@ -599,23 +600,25 @@ class MainWindow(QMainWindow):
                 'skip_signature_matched_functions': True,
             }
             self.workspace.instance._reset_containers()
-            self.workspace.instance.project.am_obj = create_angr_project_from_trace(self.workspace.trace)
+            self.workspace.instance.project.am_obj = create_angr_project_from_trace(self.workspace.instance.trace)
             self.workspace.instance.project.am_event(
                 cfg_args=cfg_args,
                 variable_recovery_args=variable_recovery_args)
         gui_thread_schedule(create_project, ())
 
     def start_trace_debugger(self):
+        if self.workspace.instance.trace.am_none:
+            _l.error('No trace available')
+            return
+
         def create_debugger():
-            # Create the trace debugger
             from ..logic.debugger import BintraceDebugger
-            dbg = BintraceDebugger(self.workspace.trace, self.workspace)
+            dbg = BintraceDebugger(self.workspace.instance.trace, self.workspace)
             dbg.init()
 
             self.workspace.instance.debugger_list.append(dbg)
             self.workspace.instance.debugger_list.am_event()
 
-            # Switch to trace debugger
             self.workspace.instance.debugger.am_obj = dbg
             self.workspace.instance.debugger.am_event()
 

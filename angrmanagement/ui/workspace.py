@@ -430,6 +430,11 @@ class Workspace:
         self.raise_view(view)
         view.setFocus()
 
+    def show_stack_view(self):
+        view = self._get_or_create_stack_view()
+        self.raise_view(view)
+        view.setFocus()
+
     def show_console_view(self):
         view = self._get_or_create_console_view()
         self.raise_view(view)

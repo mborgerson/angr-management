@@ -14,10 +14,10 @@ class SimgrStepJob(Job):
             orig_len = len(self._simgr.active)
             if orig_len > 0:
                 while len(self._simgr.active) == orig_len:
-                    self._simgr.step(step_func=self._step_callback)
+                    self._simgr.step(step_func=self._step_callback, num_inst=1)
                     self._simgr.prune()
         else:
-            self._simgr.step(step_func=self._step_callback)
+            self._simgr.step(step_func=self._step_callback, num_inst=1)
             self._simgr.prune()
 
         return self._simgr

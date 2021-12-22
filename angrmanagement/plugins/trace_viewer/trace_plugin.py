@@ -105,6 +105,7 @@ class TraceViewer(BasePlugin):
     GRAPH_TRACE_LEGEND_SPACING = 20
 
     def instrument_disassembly_view(self, dview):
+        assert(False)
         trace_viewer = QTraceViewer(self.workspace, dview, parent=dview)
         self._viewers.append(trace_viewer)
 
@@ -133,6 +134,7 @@ class TraceViewer(BasePlugin):
         return False
 
     def draw_insn(self, qinsn, painter):
+        assert(False)
         # legend
         if not self.multi_trace.am_none:
             if isinstance(self.multi_trace.am_obj, MultiTrace):

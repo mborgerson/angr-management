@@ -8,6 +8,7 @@ import angr
 from angr.block import Block
 from angr.knowledge_base import KnowledgeBase
 from angr.analyses.disassembly import Instruction
+from angrmanagement.logic.debugger import Debugger, SimulationDebugger
 
 from .jobs import CFGGenerationJob
 from .object_container import ObjectContainer
@@ -65,9 +66,10 @@ class Instance:
 
         # FIXME: Handle someone opening a new binary. _reset_containers below
         #        will be called when a new project is loaded.
+        self.trace = ObjectContainer(None, 'Current trace')
         self.debugger = ObjectContainer(None, 'Current debugger')
         self.debugger_list = ObjectContainer([], 'List of available debuggers')
-
+        self.simgrs.am_subscribe(self.update_simgr_debuggers)
         self.project.am_subscribe(self.initialize)
 
         # Callbacks
@@ -98,10 +100,45 @@ class Instance:
     # Properties
     #
 
+    def add_debugger(self, dbg: Debugger):
+        self.debugger_list.append(dbg)
+        self.debugger_list.am_event()
+        self.set_debugger(dbg)
+
+    def remove_debugger(self, dbg: Debugger):
+        update_debugger = self.debugger.am_obj is dbg
+        idx = self.debugger_list.index(dbg)
+        self.debugger_list.pop(idx)
+        if update_debugger:
+            new_idx = min(idx, len(self.debugger_list) - 1)
+            self.debugger.am_obj = self.debugger_list[new_idx] if new_idx >= 0 else None
+            self.debugger.am_event()
+        self.debugger_list.am_event()
+
     def set_debugger(self, debugger):
         assert debugger is None or debugger in self.debugger_list
         self.debugger.am_obj = debugger
         self.debugger.am_event()
+        if debugger is not None:
+            debugger._move_disassembly_view_to_ip()
+
+    def get_sim_debugger(self) -> Optional[SimulationDebugger]:
+        for dbg in self.debugger_list:
+            if isinstance(dbg, SimulationDebugger):
+                return dbg
+        return None
+
+    def update_simgr_debuggers(self, **kwargs):
+        # self.workspace.start_debugger()
+        sim_dbg = self.get_sim_debugger()
+        if len(self.simgrs) > 0:
+            if sim_dbg is None:
+                view = self.workspace._get_or_create_symexec_view()._simgrs
+                dbg = SimulationDebugger(view, self.workspace)
+                self.add_debugger(dbg)
+        else:
+            if sim_dbg is not None:
+                self.remove_debugger(sim_dbg)
 
     @property
     def kb(self) -> Optional[angr.KnowledgeBase]:
