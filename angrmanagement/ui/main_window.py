@@ -54,7 +54,7 @@ from .dialogs.load_docker_prompt import LoadDockerPrompt, LoadDockerPromptError
 from .dialogs.new_state import NewState
 from .dialogs.about import LoadAboutDialog
 from .dialogs.preferences import Preferences
-from .toolbars import FileToolbar, SimgrToolbar, DebugToolbar
+from .toolbars import FileToolbar, DebugToolbar
 from .toolbar_manager import ToolbarManager
 
 if TYPE_CHECKING:
