@@ -1,14 +1,3 @@
-# FIXME: Support debugging target threads
-# FIXME: Support launching with local GDB
-# FIXME: Support analysis of remote GDB target, with access to files
-#        - Files may be local, or files may be accessible via GDB
-# FIXME: Support analysis of remote GDB target, without access to files
-#        - Create blob loader, load code out of memory
-# FIXME: Support disassembly on demand, without needing to download
-#        big chunks.
-# FIXME: Support CFG generation on demand. Shouldn't need to generate CFG for entire region, attempt current function.
-# FIXME: Add option to update loaded modules (info proc mappings) at runtime. Desired modules may not be loaded by the
-#        time we create the project. Maybe just check whenever we halt to see if new modules were loaded, then add them.
 import logging
 from typing import Callable, Optional
 
@@ -27,7 +16,6 @@ class Debugger(QObject):
 
     state_changed: Signal = Signal()
     simstate_changed: Signal = Signal()
-    connect_failed: Signal = Signal()
 
     def __init__(self, workspace: 'Workspace'):
         super().__init__()

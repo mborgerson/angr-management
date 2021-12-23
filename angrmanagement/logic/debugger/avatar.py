@@ -6,6 +6,7 @@ from tempfile import NamedTemporaryFile
 from typing import Optional, Sequence
 
 import angr
+from PySide2.QtCore import Signal
 from angr import SimState
 from angr_targets import ConcreteTarget, AvatarGDBConcreteTarget
 import avatar2
@@ -36,6 +37,8 @@ class AvatarGdbDebugger(Debugger):
     """
     Interface to Avatar2's GDB target.
     """
+
+    connect_failed: Signal = Signal()
 
     def __init__(self, workspace,
                  remote_host: str = '127.0.0.1', remote_port: int = 3333,
