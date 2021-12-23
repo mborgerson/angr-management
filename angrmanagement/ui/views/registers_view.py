@@ -5,10 +5,10 @@ import PySide2
 from PySide2.QtGui import QFont, QBrush
 from PySide2.QtCore import QAbstractTableModel, Qt, QSize
 from PySide2.QtWidgets import QTableView, QAbstractItemView, QHeaderView, QVBoxLayout
-
 import angr
-from ...logic.debugger.debugger import DebuggerWatcher
 from archinfo import Register
+
+from ...logic.debugger.debugger import DebuggerWatcher
 from ...config import Conf
 from .view import BaseView
 
