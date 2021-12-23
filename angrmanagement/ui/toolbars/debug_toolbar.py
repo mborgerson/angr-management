@@ -120,6 +120,7 @@ class DebugToolbar(Toolbar):
         if visible:
             self.instance.debugger_list_mgr.debugger_list.am_subscribe(self._update_dbg_list_combo)
             self._dbg_watcher = DebuggerWatcher(self._dbg_state_changed, self._dbg_mgr.debugger)
+            self._dbg_state_changed()
         else:
             self._dbg_watcher.shutdown()
             self._dbg_watcher = None

@@ -73,6 +73,7 @@ class Workspace:
 
         self.breakpoints = set()
         self._dbg_watcher = DebuggerWatcher(self.on_debugger_state_updated, self.instance.debugger_mgr.debugger)
+        self.on_debugger_state_updated()
 
     #
     # Properties
@@ -94,20 +95,18 @@ class Workspace:
         """
         Jump to debugger target PC in active disassembly view.
         """
-        try:
-            # FIXME: the disassembly view should subscribe to debugger updates, but for that we will need to expose
-            #        a mechanism for the view to select between states. For now we simply have a global debugger
-            #        selection.
-            dbg = self._dbg_watcher.debugger
-            if not dbg.am_none:
-                state = dbg.simstate
+        # FIXME: the disassembly view should subscribe to debugger updates, but for that we will need to expose
+        #        a mechanism for the view to select between states. For now we simply have a global debugger
+        #        selection.
+        dbg = self._dbg_watcher.debugger
+        if not dbg.am_none:
+            state = dbg.simstate
+            if state is not None:
                 addr = state.solver.eval(state.regs.pc)
                 view = self.view_manager.current_view_in_category('disassembly') or \
                        self.view_manager.first_view_in_category('disassembly')
                 if view:
                     view.jump_to(addr, True)
-        except:
-            pass
 
     def on_function_selected(self, func: Function):
         """

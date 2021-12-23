@@ -187,7 +187,6 @@ class DebuggerWatcher(QObject):
         self.state_updated_callback: Callable = state_updated_callback
         self.debugger: ObjectContainer = debugger
         self.debugger.am_subscribe(self._on_debugger_updated)
-        self._on_debugger_updated()
 
     def shutdown(self):
         self.debugger.am_unsubscribe(self._on_debugger_updated)

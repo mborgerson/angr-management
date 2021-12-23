@@ -110,6 +110,7 @@ class QRegisterTableWidget(QTableView):
 
         self._dbg_manager = register_view.workspace.instance.debugger_mgr
         self._dbg_watcher = DebuggerWatcher(self._on_debugger_state_updated, self._dbg_manager.debugger)
+        self._on_debugger_state_updated()
 
     #
     # Events

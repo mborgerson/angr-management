@@ -96,6 +96,7 @@ class QStackTableWidget(QTableView):
 
         self._dbg_manager = stack_view.workspace.instance.debugger_mgr
         self._dbg_watcher = DebuggerWatcher(self._on_debugger_state_updated, self._dbg_manager.debugger)
+        self._on_debugger_state_updated()
 
     #
     # Events
