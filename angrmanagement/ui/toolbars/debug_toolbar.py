@@ -1,36 +1,35 @@
-import os
 from typing import Optional
 
 import qtawesome as qta
 from PySide2.QtCore import QAbstractItemModel, Qt, QModelIndex
-from PySide2.QtGui import QIcon
-from PySide2.QtWidgets import QLabel, QComboBox, QAction, QMenu, QPushButton
+from PySide2.QtWidgets import QLabel, QComboBox, QAction, QMenu
 
-from ...config import IMG_LOCATION
 from ...logic.debugger import DebuggerWatcher
-
 from ...config import Conf
-
 from .toolbar import Toolbar, ToolbarAction, ToolbarSplitter
 
 
 class AvailableDebuggersModel(QAbstractItemModel):
+    """
+    Data provider for available debuggers combo box.
+    """
+
     def __init__(self, workspace: 'Workspace'):
         super().__init__()
         self.debugger_mgr: 'DebuggerManager' = workspace.instance.debugger_mgr
         self.debugger_list_mgr: 'DebuggerListManager' = workspace.instance.debugger_list_mgr
         self.last_str = {}
 
-    def rowCount(self, parent):
+    def rowCount(self, parent):  # pylint:disable=unused-argument
         return len(self.debugger_list_mgr.debugger_list) + 1
 
-    def columnCount(self, parent):
+    def columnCount(self, parent):  # pylint:disable=unused-argument,no-self-use
         return 1
 
-    def index(self, row, col, parent):
+    def index(self, row, col, parent):  # pylint:disable=unused-argument
         return self.createIndex(row, col, None)
 
-    def parent(self, index):
+    def parent(self, index):  # pylint:disable=unused-argument,no-self-use
         return QModelIndex()
 
     def data(self, index, role):
@@ -133,7 +132,7 @@ class DebugToolbar(Toolbar):
         self._update_dbg_list_combo()
         self._update_state()
 
-    def _select_current_dbg_in_combo(self, *args, **kwargs):
+    def _select_current_dbg_in_combo(self, *args, **kwargs):  # pylint:disable=unused-argument
         dbg = self._dbg_mgr.debugger.am_obj
         self._dbg_combo.setCurrentIndex(self._dbg_model.debugger_to_index(dbg))
 
@@ -141,7 +140,7 @@ class DebugToolbar(Toolbar):
         self._new_dbg_sim.setDisabled(self.instance.project.am_none)
         self._new_dbg_trace.setDisabled(self.instance.trace.am_none)
 
-    def _update_dbg_list_combo(self, *args, **kwargs):
+    def _update_dbg_list_combo(self, *args, **kwargs):   # pylint:disable=unused-argument
         dl = self.instance.debugger_list_mgr.debugger_list
         self._dbg_combo.setEnabled(len(dl) > 0)
         self._select_current_dbg_in_combo()
