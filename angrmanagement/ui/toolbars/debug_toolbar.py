@@ -7,7 +7,7 @@ from PySide2.QtGui import QIcon
 from PySide2.QtWidgets import QLabel, QComboBox, QAction, QMenu, QPushButton
 
 from ...config import IMG_LOCATION
-from ...logic.debugger.debugger import DebuggerWatcher
+from ...logic.debugger import DebuggerWatcher
 
 from ...config import Conf
 

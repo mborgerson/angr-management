@@ -8,7 +8,7 @@ import angr
 from angr.block import Block
 from angr.knowledge_base import KnowledgeBase
 from angr.analyses.disassembly import Instruction
-from ..logic.debugger.debugger import DebuggerListManager, DebuggerManager
+from ..logic.debugger import DebuggerListManager, DebuggerManager
 from ..logic.debugger.simgr import SimulationDebugger
 
 from .jobs import CFGGenerationJob

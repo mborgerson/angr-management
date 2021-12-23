@@ -9,7 +9,7 @@ from angr import StateHierarchy
 from ..logic.debugger.avatar import AvatarGdbDebugger
 from ..ui.dialogs.debugger import StartDebugger
 
-from ..logic.debugger.debugger import DebuggerWatcher
+from ..logic.debugger import DebuggerWatcher
 from ..config import Conf
 from ..data.instance import ObjectContainer
 from ..data.jobs import CodeTaggingJob, PrototypeFindingJob, VariableRecoveryJob, FlirtSignatureRecognitionJob

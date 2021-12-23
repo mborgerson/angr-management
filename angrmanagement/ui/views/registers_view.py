@@ -8,7 +8,7 @@ from PySide2.QtWidgets import QTableView, QAbstractItemView, QHeaderView, QVBoxL
 import angr
 from archinfo import Register
 
-from ...logic.debugger.debugger import DebuggerWatcher
+from ...logic.debugger import DebuggerWatcher
 from ...config import Conf
 from .view import BaseView
 
