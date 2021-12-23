@@ -5,8 +5,9 @@ import qtawesome as qta
 from PySide2.QtCore import QAbstractItemModel, Qt, QModelIndex
 from PySide2.QtGui import QIcon
 from PySide2.QtWidgets import QLabel, QComboBox, QAction, QMenu, QPushButton
-from angrmanagement.config import IMG_LOCATION
-from angrmanagement.logic.debugger import DebuggerWatcher
+
+from ...config import IMG_LOCATION
+from ...logic.debugger.debugger import DebuggerWatcher
 
 from ...config import Conf
 

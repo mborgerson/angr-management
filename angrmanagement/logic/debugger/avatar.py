@@ -312,7 +312,6 @@ class AvatarGdbDebugger(Debugger):
                     return
                 setattr(self.simstate.regs, r.name, rval)
 
-        self.simstate_changed.emit()
         self._state_dirty = False
 
 

@@ -30,7 +30,6 @@ class BintraceDebugger(Debugger):
         """
         self._cached_simstate = None
         self.state_changed.emit()
-        self.simstate_changed.emit()
 
     def _sync_breakpoints(self):
         """

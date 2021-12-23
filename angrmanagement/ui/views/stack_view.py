@@ -7,8 +7,8 @@ from PySide2.QtCore import QAbstractTableModel, Qt, QSize
 from PySide2.QtWidgets import QTableView, QAbstractItemView, QHeaderView, QVBoxLayout
 
 import angr
-from angrmanagement.logic.debugger import DebuggerWatcher
 
+from ...logic.debugger.debugger import DebuggerWatcher
 from ...config import Conf
 from .view import BaseView
 

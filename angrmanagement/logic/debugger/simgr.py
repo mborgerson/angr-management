@@ -32,19 +32,17 @@ class SimulationDebugger(Debugger):
             pc = self.simstate.solver.eval(self.simstate.regs.pc)
             return f'Simulation @ {pc:x} ({len(self._sim_mgr.stashes["active"])} active)'
 
-    def _watch_state(self, **kwargs):
+    def _watch_state(self, **_):
         self._on_state_change()
 
-    def _watch_simgr(self, **kwargs):
+    def _watch_simgr(self, **_):
         self._on_state_change()
 
     def _on_state_change(self):
         """
         Common handler for state changes.
         """
-        self._cached_simstate = None
         self.state_changed.emit()
-        self.simstate_changed.emit()
 
     def _sync_breakpoints(self):
         """

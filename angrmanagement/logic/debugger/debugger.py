@@ -15,7 +15,6 @@ class Debugger(QObject):
     """
 
     state_changed: Signal = Signal()
-    simstate_changed: Signal = Signal()
 
     def __init__(self, workspace: 'Workspace'):
         super().__init__()

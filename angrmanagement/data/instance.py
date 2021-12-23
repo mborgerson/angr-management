@@ -8,7 +8,8 @@ import angr
 from angr.block import Block
 from angr.knowledge_base import KnowledgeBase
 from angr.analyses.disassembly import Instruction
-from ..logic.debugger import DebuggerListManager, DebuggerManager, SimulationDebugger
+from ..logic.debugger.debugger import DebuggerListManager, DebuggerManager
+from ..logic.debugger.simgr import SimulationDebugger
 
 from .jobs import CFGGenerationJob
 from .object_container import ObjectContainer
@@ -101,7 +102,7 @@ class Instance:
     # Properties
     #
 
-    def update_simgr_debuggers(self, **kwargs):
+    def update_simgr_debuggers(self, **kwargs):  # pylint:disable=unused-argument
         sim_dbg = None
         for dbg in self.debugger_list_mgr.debugger_list:
             if isinstance(dbg, SimulationDebugger):
@@ -115,7 +116,7 @@ class Instance:
                 self.debugger_list_mgr.add_debugger(dbg)
                 self.debugger_mgr.set_debugger(dbg)
         elif sim_dbg is not None:
-                self.debugger_list_mgr.remove_debugger(sim_dbg)
+            self.debugger_list_mgr.remove_debugger(sim_dbg)
 
     @property
     def kb(self) -> Optional[angr.KnowledgeBase]:

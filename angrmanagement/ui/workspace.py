@@ -5,11 +5,11 @@ import traceback
 from PySide2.QtWidgets import QMessageBox
 from angr.knowledge_plugins.functions.function import Function
 from angr import StateHierarchy
-from angrmanagement.logic.debugger.avatar import AvatarGdbDebugger
-from angrmanagement.ui.dialogs.debugger import StartDebugger
 
-from ..logic.debugger import DebuggerWatcher
+from ..logic.debugger.avatar import AvatarGdbDebugger
+from ..ui.dialogs.debugger import StartDebugger
 
+from ..logic.debugger.debugger import DebuggerWatcher
 from ..config import Conf
 from ..data.instance import ObjectContainer
 from ..data.jobs import CodeTaggingJob, PrototypeFindingJob, VariableRecoveryJob, FlirtSignatureRecognitionJob

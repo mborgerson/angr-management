@@ -12,8 +12,8 @@ from PySide2.QtCore import Qt, QSize, QEvent, QTimer, QUrl
 
 import angr
 import angr.flirt
-from angrmanagement.logic.threads import gui_thread_schedule
 
+####
 from bintrace import TraceManager
 from bintrace.debugger_angr import create_angr_project_from_trace
 
@@ -30,10 +30,11 @@ except ImportError:
     archr = None
     keystone = None
 
+from ..logic.threads import gui_thread_schedule
 from ..daemon import daemon_exists, run_daemon_process, daemon_conn
 from ..daemon.client import ClientService
 from ..logic import GlobalInfo
-from ..logic.debugger import BintraceDebugger
+from ..logic.debugger.bintrace import BintraceDebugger #####
 from ..data.instance import Instance
 from ..data.library_docs import LibraryDocs
 from ..data.jobs.loading import LoadTargetJob, LoadBinaryJob
