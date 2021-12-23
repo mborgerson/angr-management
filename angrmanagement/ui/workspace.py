@@ -14,7 +14,8 @@ from ..config import Conf
 from ..data.instance import ObjectContainer
 from ..data.jobs import CodeTaggingJob, PrototypeFindingJob, VariableRecoveryJob, FlirtSignatureRecognitionJob
 from .views import (FunctionsView, DisassemblyView, SymexecView, StatesView, StringsView, ConsoleView, CodeView,
-                    InteractionView, PatchesView, DependencyView, ProximityView, TypesView, HexView, LogView, RegistersView, StackView)
+                    InteractionView, PatchesView, DependencyView, ProximityView, TypesView, HexView, LogView,
+                    RegistersView, StackView)
 from .view_manager import ViewManager
 from .menus.disasm_insn_context_menu import DisasmInsnContextMenu
 
@@ -711,5 +712,3 @@ class Workspace:
 
         self.instance.debugger_mgr.set_debugger(None)
         self.instance.debugger_list_mgr.remove_debugger(self._avatar)
-
-
