@@ -2,8 +2,12 @@ from typing import TYPE_CHECKING, Callable
 import logging
 import traceback
 
+from PySide2.QtWidgets import QMessageBox
 from angr.knowledge_plugins.functions.function import Function
 from angr import StateHierarchy
+from angrmanagement.logic.debugger.avatar import AvatarGdbDebugger
+from angrmanagement.ui.dialogs.debugger import StartDebugger
+
 from ..logic.debugger import DebuggerWatcher
 
 from ..config import Conf
@@ -97,7 +101,11 @@ class Workspace:
             dbg = self._dbg_watcher.debugger
             if not dbg.am_none:
                 state = dbg.simstate
-                self.jump_to(state.solver.eval(state.regs.pc))
+                addr = state.solver.eval(state.regs.pc)
+                view = self.view_manager.current_view_in_category('disassembly') or \
+                       self.view_manager.first_view_in_category('disassembly')
+                if view:
+                    view.jump_to(addr, True)
         except:
             pass
 
@@ -683,27 +691,18 @@ class Workspace:
             dv.set_comment_callback = callback
 
     def start_debugger(self):
-        self._get_or_create_registers_view()
-        self._get_or_create_stack_view()
-        return
-
         dlg = StartDebugger()
         if not dlg.exec_():
             return
 
-        # local_binary_command = ['./simple_global']
-
         dbg = AvatarGdbDebugger(self, remote_host=dlg.host, remote_port=dlg.port)
-        dbg.state_changed.connect(self.debugger_state_changed)
-        dbg.connect_failed.connect(self.show_connect_failed_dialog)
+        self._avatar = dbg
+        dbg.connect_failed.connect(self.on_debugger_connect_failed)
+        self.instance.debugger_list_mgr.add_debugger(dbg)
         self.instance.debugger_mgr.set_debugger(dbg)
         dbg.init()
 
-    def debugger_state_changed(self):
-        if not self.instance.debugger.am_none and self.instance.debugger_mgr.debugger.is_exited:
-            self.instance.debugger_mgr.set_debugger(None)
-
-    def show_connect_failed_dialog(self):
+    def on_debugger_connect_failed(self):
         dlg = QMessageBox()
         dlg.setWindowTitle("Connection failed")
         dlg.setText("Failed to connect to remote target. Is it running?")
@@ -712,4 +711,6 @@ class Workspace:
         dlg.exec_()
 
         self.instance.debugger_mgr.set_debugger(None)
+        self.instance.debugger_list_mgr.remove_debugger(self._avatar)
+
 

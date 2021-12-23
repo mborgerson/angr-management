@@ -101,22 +101,20 @@ class Instance:
     # Properties
     #
 
-    def get_sim_debugger(self) -> Optional[SimulationDebugger]:
+    def update_simgr_debuggers(self, **kwargs):
+        sim_dbg = None
         for dbg in self.debugger_list_mgr.debugger_list:
             if isinstance(dbg, SimulationDebugger):
-                return dbg
-        return None
+                sim_dbg = dbg
+                break
 
-    def update_simgr_debuggers(self, **kwargs):
-        sim_dbg = self.get_sim_debugger()
         if len(self.simgrs) > 0:
             if sim_dbg is None:
                 view = self.workspace._get_or_create_symexec_view()._simgrs
                 dbg = SimulationDebugger(view, self.workspace)
                 self.debugger_list_mgr.add_debugger(dbg)
                 self.debugger_mgr.set_debugger(dbg)
-        else:
-            if sim_dbg is not None:
+        elif sim_dbg is not None:
                 self.debugger_list_mgr.remove_debugger(sim_dbg)
 
     @property

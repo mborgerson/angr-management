@@ -33,6 +33,7 @@ except ImportError:
 from ..daemon import daemon_exists, run_daemon_process, daemon_conn
 from ..daemon.client import ClientService
 from ..logic import GlobalInfo
+from ..logic.debugger import BintraceDebugger
 from ..data.instance import Instance
 from ..data.library_docs import LibraryDocs
 from ..data.jobs.loading import LoadTargetJob, LoadBinaryJob
@@ -610,14 +611,11 @@ class MainWindow(QMainWindow):
         if self.workspace.instance.trace.am_none:
             _l.error('No trace available')
             return
-
         def create_debugger():
-            from ..logic.debugger import BintraceDebugger
             dbg = BintraceDebugger(self.workspace.instance.trace, self.workspace)
             dbg.init()
             self.workspace.instance.debugger_list_mgr.add_debugger(dbg)
             self.workspace.instance.debugger_mgr.set_debugger(dbg)
-            self.workspace.start_debugger()
         gui_thread_schedule(create_debugger)
 
     def preferences(self):

@@ -41,7 +41,7 @@ class AvatarGdbDebugger(Debugger):
                  remote_host: str = '127.0.0.1', remote_port: int = 3333,
                  local_binary_command: Optional[Sequence[str]] = None
                  ):
-        super().__init__()
+        super().__init__(workspace)
         self.workspace: 'Workspace' = workspace
 
         self._local: bool = True
@@ -55,14 +55,20 @@ class AvatarGdbDebugger(Debugger):
         self._halted: bool = False
 
         self._state_dirty: bool = True
-        self.realtime_simstate: SimState = None
-        self.simstate: SimState = None
+        self._simstate: SimState = None
 
         self.avatar: Avatar = None
         self.angr_target: 'ConcreteTarget' = None
         self.project: angr.Project = None
         self.target: GDBTarget = None
-        self.proc: subprocess.Popen = None
+        self.breakpoints = {}
+
+    @property
+    def simstate(self):
+        return self._simstate
+
+    def __str__(self):
+        return f'{self._remote_host}:{self._remote_port} '
 
     @property
     def state_description(self) -> str:
@@ -88,8 +94,6 @@ class AvatarGdbDebugger(Debugger):
         """
         avatar, state_msg = args
         new_state = state_msg.state
-        # QMetaObject.invokeMethod(self, '_on_target_state_update_internal')
-        # self._on_target_state_update_internal()
         gui_thread_schedule_async(lambda: self._on_target_state_update_internal(new_state))
 
     def _on_target_state_update_internal(self, new_state):
@@ -99,12 +103,9 @@ class AvatarGdbDebugger(Debugger):
         self._run_state = new_state
         self._running = not bool(self._run_state & TargetStates.EXITED)
         self._halted = (self._run_state == TargetStates.STOPPED)  # XXX
-
         if self._halted and self.project is None:
             self._create_angr_project()
-
         self._state_dirty |= self._halted
-
         self.sync_state()
         self.state_changed.emit()
 
@@ -283,11 +284,8 @@ class AvatarGdbDebugger(Debugger):
         self.avatar.shutdown()
         self._running = False
         self._run_state = TargetStates.EXITED
-        self.simstate = None
+        self._simstate = None
         self.state_changed.emit()
-        if self.proc is not None:
-            self.proc.kill()
-            self.proc = None
 
     @property
     def is_exited(self) -> bool:
@@ -301,7 +299,7 @@ class AvatarGdbDebugger(Debugger):
         if not self._state_dirty or self.target is None or self.project is None:
             return
 
-        self.simstate = self.project.factory.blank_state(add_options={angr.options.FAST_MEMORY})
+        self._simstate = self.project.factory.blank_state(add_options={angr.options.FAST_MEMORY})
 
         for r in self.simstate.arch.register_list:
             if r.general_purpose:
@@ -310,8 +308,6 @@ class AvatarGdbDebugger(Debugger):
                     _l.error('Unavailable reg on target %s', r.name)
                     return
                 setattr(self.simstate.regs, r.name, rval)
-
-        self.realtime_simstate = self.simstate
 
         self.simstate_changed.emit()
         self._state_dirty = False

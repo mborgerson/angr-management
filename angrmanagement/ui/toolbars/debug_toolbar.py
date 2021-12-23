@@ -84,17 +84,31 @@ class DebugToolbar(Toolbar):
         self._dbg_list_mgr = self.instance.debugger_list_mgr
         self._dbg_mgr = self.instance.debugger_mgr
 
-        self._new_debugger_menu = QMenu(self._cached)
-        self._new_debugger_menu.aboutToShow.connect(self._update_new_debugger_list)
-        self._cached_actions[self._start_act].setMenu(self._new_debugger_menu)
+        self._new_dbg_menu = QMenu(self._cached)
 
-        self._debugger_model = AvailableDebuggersModel(self.workspace)
-        self._debugger_combo = QComboBox()
-        self._debugger_combo.setMinimumWidth(250)
-        self._debugger_combo.setModel(self._debugger_model)
-        self._debugger_combo.activated.connect(self._select_debugger_by_index)
-        self._cached.addWidget(self._debugger_combo)
-        self._update_debugger_list_combo()
+        self._new_dbg_sim = QAction("New simulation...", self._new_dbg_menu)
+        self._new_dbg_sim.triggered.connect(self.workspace.main_window.open_newstate_dialog)
+        self._new_dbg_menu.addAction(self._new_dbg_sim)
+
+        self._new_dbg_trace = QAction("New trace debugger", self._new_dbg_menu)
+        self._new_dbg_trace.triggered.connect(self.workspace.main_window.start_trace_debugger)
+        self._new_dbg_menu.addAction(self._new_dbg_trace)
+
+        self._new_dbg_gdb = QAction("Remote GDB target", self._new_dbg_menu)
+        self._new_dbg_gdb.triggered.connect(self.workspace.start_debugger)
+        self._new_dbg_menu.addAction(self._new_dbg_gdb)
+
+        self._new_dbg_menu.aboutToShow.connect(self._update_new_dbg_list)
+        self._cached_actions[self._start_act].setMenu(self._new_dbg_menu)
+        self._update_new_dbg_list()
+
+        self._dbg_model = AvailableDebuggersModel(self.workspace)
+        self._dbg_combo = QComboBox()
+        self._dbg_combo.setMinimumWidth(250)
+        self._dbg_combo.setModel(self._dbg_model)
+        self._dbg_combo.activated.connect(self._select_dbg_by_index)
+        self._cached.addWidget(self._dbg_combo)
+        self._update_dbg_list_combo()
 
         self._run_lbl = QLabel()
         self._run_lbl.setText('')
@@ -104,46 +118,34 @@ class DebugToolbar(Toolbar):
 
     def _on_visibility_changed(self, visible: bool):
         if visible:
-            self.instance.debugger_list_mgr.debugger_list.am_subscribe(self._update_debugger_list_combo)
-            self._dbg_watcher = DebuggerWatcher(self._debugger_state_changed, self._dbg_mgr.debugger)
+            self.instance.debugger_list_mgr.debugger_list.am_subscribe(self._update_dbg_list_combo)
+            self._dbg_watcher = DebuggerWatcher(self._dbg_state_changed, self._dbg_mgr.debugger)
         else:
             self._dbg_watcher.shutdown()
             self._dbg_watcher = None
 
-    def _select_debugger_by_index(self, index: int):
-        dbg = self._debugger_model.index_to_debugger(index)
+    def _select_dbg_by_index(self, index: int):
+        dbg = self._dbg_model.index_to_debugger(index)
         self._dbg_mgr.set_debugger(dbg)
 
-    def _debugger_state_changed(self):
-        self._update_debugger_list_combo()
+    def _dbg_state_changed(self):
+        self._update_dbg_list_combo()
         self._update_state()
 
-    def _select_current_debugger_in_combo(self, *args, **kwargs):
+    def _select_current_dbg_in_combo(self, *args, **kwargs):
         dbg = self._dbg_mgr.debugger.am_obj
-        self._debugger_combo.setCurrentIndex(self._debugger_model.debugger_to_index(dbg))
+        self._dbg_combo.setCurrentIndex(self._dbg_model.debugger_to_index(dbg))
 
-    def _update_new_debugger_list(self):
-        self._new_debugger_menu.clear()
+    def _update_new_dbg_list(self):
+        self._new_dbg_sim.setDisabled(self.instance.project.am_none)
+        self._new_dbg_trace.setDisabled(self.instance.trace.am_none)
 
-        act = QAction("New simulation...", self._new_debugger_menu)
-        act.triggered.connect(self.workspace.main_window.open_newstate_dialog)
-        self._new_debugger_menu.addAction(act)
-
-        act = QAction("New trace debugger", self._new_debugger_menu)
-        act.triggered.connect(self.workspace.main_window.start_trace_debugger)
-        self._new_debugger_menu.addAction(act)
-
-    def _update_debugger_list_combo(self, *args, **kwargs):
-        # for _ in range(self._debugger_combo.count()):
-        #     self._debugger_combo.removeItem(0)
-        # self._debugger_combo.addItem('No Debugger', None)
+    def _update_dbg_list_combo(self, *args, **kwargs):
         dl = self.instance.debugger_list_mgr.debugger_list
-        # for d in dl:
-        #     self._debugger_combo.addItem(str(d), d)
-        self._debugger_combo.setEnabled(len(dl) > 0)
-        self._select_current_debugger_in_combo()
-        self._debugger_model.layoutChanged.emit()
-        self._debugger_combo.update()
+        self._dbg_combo.setEnabled(len(dl) > 0)
+        self._select_current_dbg_in_combo()
+        self._dbg_model.layoutChanged.emit()
+        self._dbg_combo.update()
 
     def _update_state(self):
         dbg = self._dbg_mgr.debugger.am_obj
@@ -165,7 +167,6 @@ class DebugToolbar(Toolbar):
             self._run_lbl.setText('')
 
     def _on_start(self):
-        # self.workspace.main_window.start_trace_debugger()
         self._cached.widgetForAction(self._cached_actions[self._start_act]).showMenu()
 
     def _on_stop(self):
