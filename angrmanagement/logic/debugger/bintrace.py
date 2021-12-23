@@ -31,7 +31,6 @@ class BintraceDebugger(Debugger):
         self._cached_simstate = None
         self.state_changed.emit()
         self.simstate_changed.emit()
-        self._move_disassembly_view_to_ip()
 
     def _sync_breakpoints(self):
         """
@@ -100,8 +99,7 @@ class BintraceDebugger(Debugger):
         return True
 
     def stop(self):
-        if self.can_stop:
-            self.workspace.instance.remove_debugger(self)
+        pass
 
     @property
     def is_exited(self) -> bool:

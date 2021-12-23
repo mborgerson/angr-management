@@ -615,13 +615,8 @@ class MainWindow(QMainWindow):
             from ..logic.debugger import BintraceDebugger
             dbg = BintraceDebugger(self.workspace.instance.trace, self.workspace)
             dbg.init()
-
-            self.workspace.instance.debugger_list.append(dbg)
-            self.workspace.instance.debugger_list.am_event()
-
-            self.workspace.instance.debugger.am_obj = dbg
-            self.workspace.instance.debugger.am_event()
-
+            self.workspace.instance.debugger_list_mgr.add_debugger(dbg)
+            self.workspace.instance.debugger_mgr.set_debugger(dbg)
             self.workspace.start_debugger()
         gui_thread_schedule(create_debugger)
 

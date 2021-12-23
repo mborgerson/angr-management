@@ -108,18 +108,19 @@ class QRegisterTableWidget(QTableView):
 
         hheader.setSectionResizeMode(0, QHeaderView.ResizeToContents)
 
-        self._dbg_watcher = DebuggerWatcher(self._on_debugger_state_updated, register_view.workspace)
+        self._dbg_manager = register_view.workspace.instance.debugger_mgr
+        self._dbg_watcher = DebuggerWatcher(self._on_debugger_state_updated, self._dbg_manager.debugger)
 
     #
     # Events
     #
 
     def closeEvent(self, event):
-        self.register_view.workspace.instance.debugger.am_unsubscribe(self._on_debugger_updated)
+        self._dbg_watcher.shutdown()
         super().closeEvent(event)
 
     def _on_debugger_state_updated(self):
-        dbg = self.register_view.workspace.instance.debugger
+        dbg = self._dbg_manager.debugger
         self.model.update_state(None if dbg.am_none else dbg.simstate)
         self.model.layoutChanged.emit()
         self.update()

@@ -45,7 +45,6 @@ class SimulationDebugger(Debugger):
         self._cached_simstate = None
         self.state_changed.emit()
         self.simstate_changed.emit()
-        self._move_disassembly_view_to_ip()
 
     def _sync_breakpoints(self):
         """
@@ -57,7 +56,7 @@ class SimulationDebugger(Debugger):
     def simstate(self) -> SimState:
         if not self._sim_mgr_view.state.am_none:
             return self._sim_mgr_view.state.am_obj
-        elif len(self._sim_mgr.stashes["active"]) > 0:
+        elif not self._sim_mgr.am_none and len(self._sim_mgr.stashes["active"]) > 0:
             return self._sim_mgr.stashes["active"][0]
         else:
             return None

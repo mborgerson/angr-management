@@ -4,6 +4,7 @@ import traceback
 
 from angr.knowledge_plugins.functions.function import Function
 from angr import StateHierarchy
+from ..logic.debugger import DebuggerWatcher
 
 from ..config import Conf
 from ..data.instance import ObjectContainer
@@ -67,6 +68,7 @@ class Workspace:
             self.add_view(tab)
 
         self.breakpoints = set()
+        self._dbg_watcher = DebuggerWatcher(self.on_debugger_state_updated, self.instance.debugger_mgr.debugger)
 
     #
     # Properties
@@ -83,6 +85,21 @@ class Workspace:
     #
     # Events
     #
+
+    def on_debugger_state_updated(self):
+        """
+        Jump to debugger target PC in active disassembly view.
+        """
+        try:
+            # FIXME: the disassembly view should subscribe to debugger updates, but for that we will need to expose
+            #        a mechanism for the view to select between states. For now we simply have a global debugger
+            #        selection.
+            dbg = self._dbg_watcher.debugger
+            if not dbg.am_none:
+                state = dbg.simstate
+                self.jump_to(state.solver.eval(state.regs.pc))
+        except:
+            pass
 
     def on_function_selected(self, func: Function):
         """
@@ -679,14 +696,12 @@ class Workspace:
         dbg = AvatarGdbDebugger(self, remote_host=dlg.host, remote_port=dlg.port)
         dbg.state_changed.connect(self.debugger_state_changed)
         dbg.connect_failed.connect(self.show_connect_failed_dialog)
-        self.instance.debugger.am_obj = dbg
-        self.instance.debugger.am_event()
+        self.instance.debugger_mgr.set_debugger(dbg)
         dbg.init()
 
     def debugger_state_changed(self):
-        if not self.instance.debugger.am_none and self.instance.debugger.is_exited:
-            self.instance.debugger.am_obj = None
-            self.instance.debugger.am_event()
+        if not self.instance.debugger.am_none and self.instance.debugger_mgr.debugger.is_exited:
+            self.instance.debugger_mgr.set_debugger(None)
 
     def show_connect_failed_dialog(self):
         dlg = QMessageBox()
@@ -696,6 +711,5 @@ class Workspace:
         dlg.setStandardButtons(QMessageBox.Ok)
         dlg.exec_()
 
-        self.instance.debugger.am_obj = None
-        self.instance.debugger.am_event()
+        self.instance.debugger_mgr.set_debugger(None)
 

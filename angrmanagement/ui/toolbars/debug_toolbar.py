@@ -1,5 +1,8 @@
 import os
+from typing import Optional
+
 import qtawesome as qta
+from PySide2.QtCore import QAbstractItemModel, Qt, QModelIndex
 from PySide2.QtGui import QIcon
 from PySide2.QtWidgets import QLabel, QComboBox, QAction, QMenu, QPushButton
 from angrmanagement.config import IMG_LOCATION
@@ -9,13 +12,49 @@ from ...config import Conf
 
 from .toolbar import Toolbar, ToolbarAction, ToolbarSplitter
 
+
+class AvailableDebuggersModel(QAbstractItemModel):
+    def __init__(self, workspace: 'Workspace'):
+        super().__init__()
+        self.debugger_mgr: 'DebuggerManager' = workspace.instance.debugger_mgr
+        self.debugger_list_mgr: 'DebuggerListManager' = workspace.instance.debugger_list_mgr
+        self.last_str = {}
+
+    def rowCount(self, parent):
+        return len(self.debugger_list_mgr.debugger_list) + 1
+
+    def columnCount(self, parent):
+        return 1
+
+    def index(self, row, col, parent):
+        return self.createIndex(row, col, None)
+
+    def parent(self, index):
+        return QModelIndex()
+
+    def data(self, index, role):
+        if not index.isValid() or role != Qt.DisplayRole:
+            return None
+        row = index.row()
+        dbg = self.index_to_debugger(row)
+        self.last_str[row] = 'No Debugger' if dbg is None else str(dbg)
+        return self.last_str[row]
+
+    def debugger_to_index(self, dbg: Optional['Debugger']) -> int:
+        return 0 if dbg is None else (self.debugger_list_mgr.debugger_list.index(dbg) + 1)
+
+    def index_to_debugger(self, index: int) -> Optional['Debugger']:
+        return None if index == 0 else (self.debugger_list_mgr.debugger_list[index - 1])
+
+
 class DebugToolbar(Toolbar):
     """
     Debugger Control Toolbar
     """
     def __init__(self, main_window: 'MainWindow'):
         super().__init__(main_window, 'DebugToolbar')
-        self.workspace = main_window.workspace
+        self.workspace: 'Workspace' = main_window.workspace
+        self.instance: 'Instance' = self.workspace.instance
 
         self._cont_backward_act = ToolbarAction(qta.icon("fa5s.fast-backward", color=Conf.palette_buttontext),
             'Continue-Backward', 'Reverse-Continue', self._on_cont_backward)
@@ -40,12 +79,19 @@ class DebugToolbar(Toolbar):
         ]
         self.qtoolbar()
 
+        self._cached.visibilityChanged.connect(self._on_visibility_changed)
+
+        self._dbg_list_mgr = self.instance.debugger_list_mgr
+        self._dbg_mgr = self.instance.debugger_mgr
+
         self._new_debugger_menu = QMenu(self._cached)
         self._new_debugger_menu.aboutToShow.connect(self._update_new_debugger_list)
         self._cached_actions[self._start_act].setMenu(self._new_debugger_menu)
 
+        self._debugger_model = AvailableDebuggersModel(self.workspace)
         self._debugger_combo = QComboBox()
         self._debugger_combo.setMinimumWidth(250)
+        self._debugger_combo.setModel(self._debugger_model)
         self._debugger_combo.activated.connect(self._select_debugger_by_index)
         self._cached.addWidget(self._debugger_combo)
         self._update_debugger_list_combo()
@@ -54,47 +100,53 @@ class DebugToolbar(Toolbar):
         self._run_lbl.setText('')
         self._cached.addWidget(self._run_lbl)
 
-        self.workspace.instance.debugger_list.am_subscribe(self._update_debugger_list_combo)
-        self.workspace.instance.debugger.am_subscribe(self._debugger_changed)
+        self._dbg_watcher: Optional[DebuggerWatcher] = None
 
-        self._dbg_watcher = DebuggerWatcher(self._debugger_state_changed, self.workspace)
+    def _on_visibility_changed(self, visible: bool):
+        if visible:
+            self.instance.debugger_list_mgr.debugger_list.am_subscribe(self._update_debugger_list_combo)
+            self._dbg_watcher = DebuggerWatcher(self._debugger_state_changed, self._dbg_mgr.debugger)
+        else:
+            self._dbg_watcher.shutdown()
+            self._dbg_watcher = None
 
     def _select_debugger_by_index(self, index: int):
-        self.workspace.instance.set_debugger(self._debugger_combo.itemData(index))
-
-    def _debugger_changed(self):
-        self._select_current_debugger_in_combo()
-        self._update_state()
+        dbg = self._debugger_model.index_to_debugger(index)
+        self._dbg_mgr.set_debugger(dbg)
 
     def _debugger_state_changed(self):
         self._update_debugger_list_combo()
         self._update_state()
 
     def _select_current_debugger_in_combo(self, *args, **kwargs):
-        dbg = self.workspace.instance.debugger.am_obj
-        index = self._debugger_combo.findData(dbg) if dbg else 0
-        self._debugger_combo.setCurrentIndex(index)
+        dbg = self._dbg_mgr.debugger.am_obj
+        self._debugger_combo.setCurrentIndex(self._debugger_model.debugger_to_index(dbg))
 
     def _update_new_debugger_list(self):
         self._new_debugger_menu.clear()
+
         act = QAction("New simulation...", self._new_debugger_menu)
         act.triggered.connect(self.workspace.main_window.open_newstate_dialog)
         self._new_debugger_menu.addAction(act)
+
         act = QAction("New trace debugger", self._new_debugger_menu)
         act.triggered.connect(self.workspace.main_window.start_trace_debugger)
         self._new_debugger_menu.addAction(act)
 
     def _update_debugger_list_combo(self, *args, **kwargs):
-        for _ in range(self._debugger_combo.count()):
-            self._debugger_combo.removeItem(0)
-        self._debugger_combo.addItem('No Debugger', None)
-        for d in self.workspace.instance.debugger_list:
-            self._debugger_combo.addItem(str(d), d)
-        self._debugger_combo.setEnabled(len(self.workspace.instance.debugger_list) > 0)
+        # for _ in range(self._debugger_combo.count()):
+        #     self._debugger_combo.removeItem(0)
+        # self._debugger_combo.addItem('No Debugger', None)
+        dl = self.instance.debugger_list_mgr.debugger_list
+        # for d in dl:
+        #     self._debugger_combo.addItem(str(d), d)
+        self._debugger_combo.setEnabled(len(dl) > 0)
         self._select_current_debugger_in_combo()
+        self._debugger_model.layoutChanged.emit()
+        self._debugger_combo.update()
 
     def _update_state(self):
-        dbg = self.workspace.instance.debugger.am_obj
+        dbg = self._dbg_mgr.debugger.am_obj
         dbg_active = dbg is not None
         q = lambda a: self._cached_actions[a]
         q(self._step_act).setEnabled(dbg_active and dbg.can_step_forward)
@@ -117,19 +169,20 @@ class DebugToolbar(Toolbar):
         self._cached.widgetForAction(self._cached_actions[self._start_act]).showMenu()
 
     def _on_stop(self):
-        self.workspace.instance.debugger.stop()
+        self._dbg_mgr.debugger.stop()
+        self._dbg_list_mgr.remove_debugger(self._dbg_mgr.debugger.am_obj)
 
     def _on_cont(self):
-        self.workspace.instance.debugger.continue_forward()
+        self._dbg_mgr.debugger.continue_forward()
 
     def _on_cont_backward(self):
-        self.workspace.instance.debugger.continue_backward()
+        self._dbg_mgr.debugger.continue_backward()
 
     def _on_halt(self):
-        self.workspace.instance.debugger.halt()
+        self._dbg_mgr.debugger.halt()
 
     def _on_step(self):
-        self.workspace.instance.debugger.step_forward()
+        self._dbg_mgr.debugger.step_forward()
 
     def _on_step_backward(self):
-        self.workspace.instance.debugger.step_backward()
+        self._dbg_mgr.debugger.step_backward()

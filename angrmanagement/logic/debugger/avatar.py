@@ -314,7 +314,6 @@ class AvatarGdbDebugger(Debugger):
         self.realtime_simstate = self.simstate
 
         self.simstate_changed.emit()
-        self._move_disassembly_view_to_ip()
         self._state_dirty = False
 
 
@@ -407,25 +406,6 @@ class AvatarGdbDebugger(QObject):
 
         self.sync_state()
         self.state_changed.emit()
-
-    def _move_disassembly_view_to_ip(self):
-        """
-        Jump to target PC in active disassembly view.
-        """
-        try:
-            # FIXME: Instead of us controlling the disassembly view here, it would
-            #        be preferred to allow the disassembly view to synchronize with
-            #        RIP.
-            pc = self.simstate.solver.eval(self.simstate.regs.pc)
-            if len(self.workspace.view_manager.views_by_category['disassembly']) == 1:
-                disasm_view = self.workspace.view_manager.first_view_in_category('disassembly')
-            else:
-                disasm_view = self.workspace.view_manager.current_view_in_category('disassembly')
-
-            if disasm_view is not None:
-                disasm_view.jump_to(pc)
-        except:
-            pass
 
     def _create_angr_project(self):
         """
@@ -756,7 +736,6 @@ class AvatarGdbDebugger(QObject):
 
         self.state_changed.emit()
         self.simstate_changed.emit()
-        self._move_disassembly_view_to_ip()
 
     def sync_state(self):
         """
@@ -782,7 +761,6 @@ class AvatarGdbDebugger(QObject):
             self.load_trace()
 
         self.simstate_changed.emit()
-        self._move_disassembly_view_to_ip()
         self._state_dirty = False
 
 '''

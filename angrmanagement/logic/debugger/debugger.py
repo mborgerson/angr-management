@@ -9,61 +9,15 @@
 # FIXME: Support CFG generation on demand. Shouldn't need to generate CFG for entire region, attempt current function.
 # FIXME: Add option to update loaded modules (info proc mappings) at runtime. Desired modules may not be loaded by the
 #        time we create the project. Maybe just check whenever we halt to see if new modules were loaded, then add them.
-import functools
-import subprocess
 import logging
-import os
-import re
-from tempfile import NamedTemporaryFile
-from typing import Optional, Sequence
+from typing import Callable, Optional
 
-from PySide2.QtCore import QObject, Signal, Slot
+from PySide2.QtCore import QObject, Signal
 
-import angr
-from angr import SimState, SimulationManager
-from angr_targets import ConcreteTarget, AvatarGDBConcreteTarget
-
-import avatar2
-from angrmanagement.data.jobs import SimgrStepJob, SimgrExploreJob
-from angrmanagement.ui.widgets.qsimulation_managers import QSimulationManagers
-from avatar2 import Avatar, GDBTarget, TargetStates
-from cle.gdb import convert_info_proc_maps
-
-from ..threads import gui_thread_schedule, gui_thread_schedule_async
+from ...data.object_container import ObjectContainer
 
 
 _l = logging.getLogger(name=__name__)
-
-
-class DebuggerWatcher(QObject):
-    """
-    Watcher object that automatically connects signals and calls callbacks.
-    """
-
-    def __init__(self, state_updated_callback, workspace: 'Workspace'):
-        self.workspace = workspace
-        self.state_updated_callback = state_updated_callback
-        self._last_selected_debugger = None
-        self.workspace.instance.debugger.am_subscribe(self._on_debugger_updated)
-        self._on_debugger_updated()
-
-    def _on_debugger_updated(self, *args, **kwargs):  # pylint:disable=unused-argument
-        dbg = self._last_selected_debugger
-        if dbg:
-            dbg.state_changed.disconnect(self._on_debugger_state_updated)
-            # dbg.simstate_changed.disconnect(self._on_debugger_state_updated)
-            self._last_selected_debugger = None
-
-        dbg = self.workspace.instance.debugger
-        if not dbg.am_none:
-            dbg.state_changed.connect(self._on_debugger_state_updated)
-            # dbg.simstate_changed.connect(self._on_debugger_state_updated)
-            self._last_selected_debugger = dbg.am_obj
-
-        self._on_debugger_state_updated()
-
-    def _on_debugger_state_updated(self):
-        self.state_updated_callback()
 
 
 class Debugger(QObject):
@@ -86,24 +40,6 @@ class Debugger(QObject):
         Get a string describing the current debugging state.
         """
         return ''
-
-    def _move_disassembly_view_to_ip(self):
-        """
-        Jump to target PC in active disassembly view.
-        """
-        try:
-            # FIXME: Instead of us controlling the disassembly view here, it would
-            #        be preferred to allow the disassembly view to synchronize with a watcher.
-            pc = self.simstate.solver.eval(self.simstate.regs.pc)
-            if len(self.workspace.view_manager.views_by_category['disassembly']) == 1:
-                disasm_view = self.workspace.view_manager.first_view_in_category('disassembly')
-            else:
-                disasm_view = self.workspace.view_manager.current_view_in_category('disassembly')
-
-            if disasm_view is not None:
-                disasm_view.jump_to(pc)
-        except:
-            pass
 
     def init(self):
         """
@@ -208,3 +144,82 @@ class Debugger(QObject):
         Determine if the target has exited.
         """
         return False
+
+
+class DebuggerListManager:
+    """
+    Manages the list of active debuggers.
+    """
+
+    def __init__(self):
+        self.debugger_list = ObjectContainer([], 'List of active debuggers')
+
+    def add_debugger(self, dbg: Debugger):
+        self.debugger_list.append(dbg)
+        self.debugger_list.am_event(added=dbg)
+
+    def remove_debugger(self, dbg: Debugger):
+        self.debugger_list.remove(dbg)
+        self.debugger_list.am_event(removed=dbg)
+
+
+class DebuggerManager:
+    """
+    Manages one selected active debugger container.
+    """
+
+    def __init__(self, debugger_list_mgr: DebuggerListManager):
+        self.debugger: ObjectContainer = ObjectContainer(None, 'Current debugger')
+        debugger_list_mgr.debugger_list.am_subscribe(self._on_debugger_list_event)
+
+    def _on_debugger_list_event(self, **kwargs):
+        if 'removed' in kwargs:
+            self._on_debugger_removed(kwargs['removed'])
+
+    def _on_debugger_removed(self, dbg: Debugger):
+        if self.debugger.am_obj is dbg:
+            self.set_debugger(None)
+
+    def set_debugger(self, dbg: Optional[Debugger]):
+        self.debugger.am_obj = dbg
+        self.debugger.am_event()
+
+
+class DebuggerWatcher(QObject):
+    """
+    Watcher object that subscribes to debugger events whenever debugger changes.
+    """
+
+    def __init__(self, state_updated_callback: Callable, debugger: ObjectContainer):
+        """
+        :param state_updated_callback: Callable to be called whenever the debugger state changes.
+        :param debugger: Debugger container to monitor.
+        """
+        super().__init__()
+        self._last_selected_debugger: Optional[Debugger] = None
+        self.state_updated_callback: Callable = state_updated_callback
+        self.debugger: ObjectContainer = debugger
+        self.debugger.am_subscribe(self._on_debugger_updated)
+        self._on_debugger_updated()
+
+    def shutdown(self):
+        self.debugger.am_unsubscribe(self._on_debugger_updated)
+        self._unsubscribe_from_events()
+
+    def _unsubscribe_from_events(self):
+        if self._last_selected_debugger:
+            self._last_selected_debugger.state_changed.disconnect(self._on_debugger_state_updated)
+            self._last_selected_debugger = None
+
+    def _subscribe_to_events(self):
+        if not self.debugger.am_none:
+            self.debugger.state_changed.connect(self._on_debugger_state_updated)
+            self._last_selected_debugger = self.debugger.am_obj
+
+    def _on_debugger_updated(self, *args, **kwargs):  # pylint:disable=unused-argument
+        self._unsubscribe_from_events()
+        self._subscribe_to_events()
+        self._on_debugger_state_updated()
+
+    def _on_debugger_state_updated(self):
+        self.state_updated_callback()
