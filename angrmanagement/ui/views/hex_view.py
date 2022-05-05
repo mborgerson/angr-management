@@ -614,7 +614,7 @@ class HexGraphicsObject(QGraphicsObject):
         self.char_width = ti.boundingRect().width()
         self.section_space = self.char_width * 4
         self.addr_offset = self.char_width * 1
-        self.addr_width = self.char_width * 8
+        self.addr_width = self.char_width * len(f'{self.display_end_addr:8x}')
         self.byte_width = self.char_width * 2
         self.byte_space = self.char_width * 1
         self.byte_group_space = self.char_width * 2
@@ -1197,9 +1197,12 @@ class HexView(SynchronizedView):
         """
         Callback when hex backing data store should be updated.
         """
+        # FIXME: Support clearing the buffer
+        # FIXME: Preserve cursor when switching buffer
         source = self._disasm_level_combo.currentData()
         if source == HexDataSource.Loader:
             if self.workspace.instance.cfb.am_none:
+                # FIXME: Clear
                 return
             loader = self.workspace.instance.project.loader
             self.inner_widget.set_region_callback(
@@ -1213,19 +1216,15 @@ class HexView(SynchronizedView):
             self._data_cache = {}
             dbg = self.workspace.instance.debugger_mgr.debugger
             if dbg.am_none:
+                # FIXME: Clear
                 return
-                # self.inner_widget.set_region_callback(
-                #     lambda *vargs: False,
-                #     lambda addr: 0,
-                #     0, 1
-                # )  # FIXME: Support clearing the buffer
             else:
                 state: angr.SimState = dbg.simstate
                 self.inner_widget.set_region_callback(
                     self.debugger_memory_write_func,
                     self.debugger_memory_read_func,
                     0,
-                    0xffffffffffffffff  # FIXME: Get actual ranges and add them
+                    0x10000000000000000  # FIXME: Get actual ranges and add them
                 )
             self._patch_highlights = []
             self._set_highlighted_regions()
