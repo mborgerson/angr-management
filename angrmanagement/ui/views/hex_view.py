@@ -2,10 +2,11 @@ from typing import Sequence, Union, Optional, Tuple, Callable
 import logging
 
 import PySide2
+import angr
 from PySide2.QtWidgets import QApplication, QHBoxLayout, QMainWindow, QVBoxLayout, QFrame, QGraphicsView, \
     QGraphicsScene, QGraphicsItem, QGraphicsObject, QGraphicsSimpleTextItem, \
     QGraphicsSceneMouseEvent, QLabel, QMenu, QPushButton, QAction, QMessageBox, QAbstractScrollArea, \
-    QAbstractSlider
+    QAbstractSlider, QComboBox
 from PySide2.QtGui import QPainterPath, QPen, QFont, QColor, QWheelEvent, QCursor
 from PySide2.QtCore import Qt, QRectF, QPointF, QSizeF, Signal, QEvent, QMarginsF, QTimer
 
@@ -862,7 +863,10 @@ class HexGraphicsObject(QGraphicsObject):
                         color = Conf.disasm_view_unprintable_byte_color
                     byte_text = '%02x' % val
                 else:
-                    byte_text = '??'
+                    if type(val) is str and len(val) == 1:
+                        byte_text = val * 2
+                    else:
+                        byte_text = '??'
                     color = Conf.disasm_view_unknown_byte_color
 
                 pt.setX(self.byte_column_offsets[col])
@@ -886,7 +890,10 @@ class HexGraphicsObject(QGraphicsObject):
                         ch = '.'
                 else:
                     color = Conf.disasm_view_unknown_character_color
-                    ch = '?'
+                    if type(val) is str and len(val) == 1:
+                        ch = val
+                    else:
+                        ch = '?'
 
                 pt.setX(self.ascii_column_offsets[col])
                 painter.setPen(color)
@@ -1146,6 +1153,15 @@ class HexGraphicsView(QAbstractScrollArea):
         super().keyPressEvent(event)
 
 
+from enum import Enum
+from ...logic.debugger import DebuggerWatcher
+
+
+class HexDataSource(Enum):
+    Loader = 0
+    Debugger = 1
+
+
 class HexView(SynchronizedView):
     """
     View and edit memory/object code in classic hex editor format.
@@ -1163,11 +1179,92 @@ class HexView(SynchronizedView):
         self._patch_highlights: Sequence[HexHighlightRegion] = []
 
         self._init_widgets()
-        self.workspace.instance.cfb.am_subscribe(self.reload_cfb)
+        self.workspace.instance.cfb.am_subscribe(self._reload_data)
         self.workspace.instance.patches.am_subscribe(self._update_highlight_regions_from_patches)
+        self._data_cache = {}
 
-        self.reload_cfb()
-        self._update_highlight_regions_from_patches()
+        self._reload_data()
+
+        self._dbg_manager = self.workspace.instance.debugger_mgr
+        self._dbg_watcher = DebuggerWatcher(self._on_debugger_state_updated, self._dbg_manager.debugger)
+        self._on_debugger_state_updated()
+
+    def closeEvent(self, event):
+        self._dbg_watcher.shutdown()
+        super().closeEvent(event)
+
+    def _reload_data(self):
+        """
+        Callback when hex backing data store should be updated.
+        """
+        source = self._disasm_level_combo.currentData()
+        if source == HexDataSource.Loader:
+            if self.workspace.instance.cfb.am_none:
+                return
+            loader = self.workspace.instance.project.loader
+            self.inner_widget.set_region_callback(
+                self.project_memory_write_func,
+                self.project_memory_read_func,
+                loader.min_addr,
+                loader.max_addr - loader.min_addr + 1
+            )
+            self._update_highlight_regions_from_patches()
+        elif source == HexDataSource.Debugger:
+            self._data_cache = {}
+            dbg = self.workspace.instance.debugger_mgr.debugger
+            if dbg.am_none:
+                return
+                # self.inner_widget.set_region_callback(
+                #     lambda *vargs: False,
+                #     lambda addr: 0,
+                #     0, 1
+                # )  # FIXME: Support clearing the buffer
+            else:
+                state: angr.SimState = dbg.simstate
+                self.inner_widget.set_region_callback(
+                    self.debugger_memory_write_func,
+                    self.debugger_memory_read_func,
+                    0,
+                    0xffffffffffffffff  # FIXME: Get actual ranges and add them
+                )
+            self._patch_highlights = []
+            self._set_highlighted_regions()
+        else:
+            raise NotImplementedError()
+
+    def _disasm_level_combo_changed(self, index: int):  # pylint:disable=unused-argument
+        self._reload_data()
+
+    def _on_debugger_state_updated(self):
+        source = self._disasm_level_combo.currentData()
+        if source == HexDataSource.Debugger:
+            self._data_cache = {}
+            self.inner_widget.hex.update()
+
+    def debugger_memory_read_func(self, addr: int) -> HexByteValue:
+        """
+        Callback to populate hex view with bytes from debugger state.
+        """
+        if addr not in self._data_cache:
+            dbg = self.workspace.instance.debugger_mgr.debugger
+            if dbg.am_none:
+                v = '!'
+            else:
+                state: angr.SimState = dbg.simstate
+                try:
+                    r = state.memory.load(addr, 1)
+                    v = 'S' if r.symbolic else state.solver.eval(r)
+                except:
+                    l.exception(f'Failed to read @ {addr:#x}')
+                    v = '?'
+            self._data_cache[addr] = v
+        return self._data_cache[addr]
+
+    def debugger_memory_write_func(self, addr: int, value: int) -> bool:  # pylint:disable=unused-argument
+        """
+        Callback to populate hex view with bytes.
+        """
+        return False
 
     def project_memory_read_func(self, addr: int) -> HexByteValue:
         """
@@ -1244,21 +1341,6 @@ class HexView(SynchronizedView):
         """
         return self.project_memory_write_bytearray(addr, bytearray([value]))
 
-    def reload_cfb(self):
-        """
-        Callback when project CFB changes.
-        """
-        if self.workspace.instance.cfb.am_none:
-            return
-
-        loader = self.workspace.instance.project.loader
-        self.inner_widget.set_region_callback(
-            self.project_memory_write_func,
-            self.project_memory_read_func,
-            loader.min_addr,
-            loader.max_addr - loader.min_addr + 1
-        )
-
     def set_smart_highlighting_enabled(self, enable: bool):
         """
         Control whether smart highlighting is enabled or not.
@@ -1282,6 +1364,12 @@ class HexView(SynchronizedView):
 
         status_lyt.addWidget(self._status_lbl)
         status_lyt.addStretch(0)
+
+        self._disasm_level_combo = QComboBox(self)
+        self._disasm_level_combo.addItem("Loader", HexDataSource.Loader)
+        self._disasm_level_combo.addItem("Debugger", HexDataSource.Debugger)
+        self._disasm_level_combo.activated.connect(self._disasm_level_combo_changed)
+        status_lyt.addWidget(self._disasm_level_combo)
 
         option_btn = QPushButton()
         option_btn.setText('Options')
