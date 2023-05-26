@@ -48,11 +48,12 @@ class CFGGenerationJob(Job):
             exclude_region_types=exclude_region_types, on_object_added=self._on_cfb_object_added
         )
         self._cfb = temp_cfb
+
         cfg = inst.project.analyses.CFG(
             progress_callback=self._progress_callback,
             low_priority=True,
             cfb=temp_cfb,
-            use_patches=True,
+            base_state=(inst.project.kb.patches.patched_blank_state if inst.project.kb.patches.values() else None),
             **self.cfg_args,
         )
         self._cfb = None
