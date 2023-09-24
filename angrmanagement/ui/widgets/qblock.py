@@ -5,6 +5,7 @@ from angr.analyses.disassembly import Instruction, IROp
 from angr.sim_variable import SimRegisterVariable
 from PySide6.QtCore import QMarginsF, QRectF
 from PySide6.QtGui import QPainterPath, QPen
+from PySide6.QtWidgets import QGraphicsItem
 
 from angrmanagement.config import Conf
 from angrmanagement.utils import get_block_objects, get_label_text, get_out_branches_for_insn
@@ -47,6 +48,10 @@ class QBlock(QCachedGraphicsItem):
         idx=None,
     ):
         super().__init__(parent=parent)
+
+        assert scene is not None
+
+        self.setFlags(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable | QGraphicsItem.GraphicsItemFlag.ItemIsFocusable)# | QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
 
         # initialization
         self.instance = instance
@@ -181,14 +186,13 @@ class QBlock(QCachedGraphicsItem):
         self.objects.append(block_name_label)
         self.addr_to_labels[bn.addr] = block_name_label
 
-        for stmt in bn.statements:
-            code_obj = QAilObj(stmt, self.instance, self.infodock, parent=None, options=self._block_code_options)
-            obj = QBlockCode(
-                stmt.ins_addr, code_obj, self._config, self.disasm_view, self.instance, self.infodock, parent=self
-            )
-            code_obj.parent = obj  # Reparent
-            self.objects.append(obj)
-            self.addr_to_insns[bn.addr] = obj
+        code_obj = QAilObj(bn, self.instance, self.infodock, parent=self, options=self._block_code_options)
+        obj = QBlockCode(
+            bn.addr, code_obj, self._config, self.disasm_view, self.instance, self.infodock, parent=self
+        )
+        code_obj.parent = obj  # Reparent
+        self.objects.append(obj)
+        self.addr_to_insns[bn.addr] = obj
 
     def _init_disassembly_block_widgets(self):
         for obj in get_block_objects(self.disasm, self.cfg_nodes, self.func_addr):

@@ -4,7 +4,7 @@ import ailment
 import pyvex
 from PySide6.QtCore import QObject, QPointF, QRectF, Qt
 from PySide6.QtGui import QFont, QMouseEvent, QPainter, QTextCharFormat, QTextCursor, QTextDocument
-from PySide6.QtWidgets import QGraphicsSimpleTextItem
+from PySide6.QtWidgets import QGraphicsSimpleTextItem, QGraphicsTextItem, QGraphicsItem
 
 from angrmanagement.config import Conf, ConfigurationManager
 from angrmanagement.utils import string_at_addr
@@ -101,8 +101,8 @@ class QBlockCodeObj(QObject):
         """
         Add each subobject to the document
         """
-        self.update_style()
-        self.recreate_subobjs()
+        # self.update_style()
+        # self.recreate_subobjs()
         span_min = cursor.position()
         for obj in self.subobjs:
             if isinstance(obj, str):
@@ -181,7 +181,8 @@ class QAilObj(QBlockCodeObj):
     """
 
     def __init__(self, obj: Any, instance, *args, stmt=None, **kwargs):
-        self.stmt = stmt or obj
+        self._obj  = obj
+        self.stmt = stmt
         self.instance = instance
         super().__init__(obj, *args, **kwargs)
 
@@ -193,6 +194,7 @@ class QAilObj(QBlockCodeObj):
         Map appropriate AIL type to the display type
         """
         subobjcls = {
+            ailment.block.Block: QAilBlockObj,
             ailment.statement.Assignment: QAilAssignmentObj,
             ailment.statement.Store: QAilStoreObj,
             ailment.statement.Jump: QAilJumpObj,
@@ -224,6 +226,19 @@ class QAilObj(QBlockCodeObj):
             ail_obj_ins_addr = getattr(self.obj, "ins_addr", None)
             if ail_obj_ins_addr is not None:
                 self.infodock.select_instruction(ail_obj_ins_addr)
+
+
+class QAilBlockObj(QAilObj):
+    """
+    Renders a block of AIL
+    """
+
+    def create_subobjs(self, obj: Any):
+        for idx, stmt in enumerate(obj.statements):
+            # self.add_ailobj(stmt)
+            if idx:
+                self.add_text("\n")
+            self._add_subobj(QAilObj(stmt, self.instance, self.infodock, parent=self, options=self.options, stmt=stmt))
 
 
 class QAilTextObj(QAilObj):
@@ -703,7 +718,7 @@ class QIROpVexUnopObj(QIROpTextObj):
         self.add_text(")")
 
 
-class QBlockCode(QCachedGraphicsItem):
+class QBlockCode(QGraphicsTextItem):#QGraphicsItem):#QCachedGraphicsItem):
     """
     Top-level code widget for a selection of text. Will construct an AST using
     QBlockCodeObj, mirroring the structure associated with the target object.
@@ -721,6 +736,47 @@ class QBlockCode(QCachedGraphicsItem):
     disasm_view: "QDisassemblyBaseControl"
     infodock: "InfoDock"
     parent: Any
+
+#####
+
+    def clear_cache(self):
+        self.prepareGeometryChange()
+        self._cached_bounding_rect = None
+        self._cached_device_pixel_ratio = None
+
+    # def refresh(self):
+    #     pass
+
+    @property
+    def width(self):
+        return self.boundingRect().width()
+
+    @property
+    def height(self):
+        return self.boundingRect().height()
+
+    def recalculate_size(self):
+        self.prepareGeometryChange()
+        self._cached_device_pixel_ratio = None
+        self._cached_bounding_rect = self._boundingRect()
+
+    # def boundingRect(self):
+    #     if self._cached_bounding_rect is None:
+    #         self._cached_bounding_rect = self._boundingRect()
+    #     return self._cached_bounding_rect
+
+    # def _boundingRect(self):
+    #     raise NotImplementedError
+
+    # def _boundingRectAdjusted(self):
+    #     # adjust according to devicePixelRatioF
+    #     return self._boundingRect()
+
+    def boundingRect(self):
+        return self._boundingRect()
+
+
+#####
 
     def __init__(
         self,
@@ -744,13 +800,24 @@ class QBlockCode(QCachedGraphicsItem):
         self.instance = instance
         self.infodock = infodock
         self._disasm_view = disasm_view
-        self._qtextdoc = QTextDocument()
+        # self.setDocument(self._qtextdoc)
+
+        self.setFlag(QGraphicsItem.ItemUsesExtendedStyleOption, True)  # Give me more specific paint update rect info
+        self.setFlag(QGraphicsItem.ItemIsFocusable, True)  # Give me focus/key events
+        self.setFlag(QGraphicsItem.ItemClipsToShape, True)
+
+        # self._addr_item = QGraphicsSimpleTextItem(self._addr_str, self)
+        # self._addr_item.setBrush(Conf.disasm_view_node_address_color)
+        # self._addr_item.setFont(Conf.disasm_font)
+
+        self._editor = self #QGraphicsTextItem(self)
+        # self._editor.setDocument(self._qtextdoc)
+        self._editor.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.TextSelectableByKeyboard)
+
+        # self._qtextdoc = QTextDocument()
+        self._qtextdoc = self._editor.document()
         self._qtextdoc.setDefaultFont(self._config.disasm_font)
         self._qtextdoc.setDocumentMargin(0)
-
-        self._addr_item = QGraphicsSimpleTextItem(self._addr_str, self)
-        self._addr_item.setBrush(Conf.disasm_view_node_address_color)
-        self._addr_item.setFont(Conf.disasm_font)
 
         self.update_document()
         self.setToolTip("Address: " + self._addr_str)
@@ -758,7 +825,7 @@ class QBlockCode(QCachedGraphicsItem):
         self.refresh()
 
     def refresh(self):
-        self._addr_item.setVisible(self._disasm_view.show_address)
+        # self._addr_item.setVisible(self._disasm_view.show_address)
         self._layout_items_and_update_size()
 
     def update_document(self):
@@ -766,8 +833,11 @@ class QBlockCode(QCachedGraphicsItem):
         cur = QTextCursor(self._qtextdoc)
         self.obj.render_to_doc(cur)
 
+    """
     def paint(self, painter, option, widget):  # pylint: disable=unused-argument
         self.update_document()
+        return
+    
         painter.setRenderHints(QPainter.Antialiasing | QPainter.SmoothPixmapTransform)
         painter.setFont(self._config.disasm_font)
 
@@ -784,11 +854,12 @@ class QBlockCode(QCachedGraphicsItem):
 
         painter.translate(QPointF(x, 0))
         self._qtextdoc.drawContents(painter)
+    """
 
     #
     # Event handlers
     #
-
+    '''
     def get_obj_for_mouse_event(self, event: QMouseEvent) -> QBlockCodeObj:
         p = event.pos()
 
@@ -802,7 +873,7 @@ class QBlockCode(QCachedGraphicsItem):
                 return self.obj.get_hit_obj(hitpos)
 
         return None
-
+    
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.infodock.select_instruction(self.addr)
@@ -815,7 +886,17 @@ class QBlockCode(QCachedGraphicsItem):
         obj = self.get_obj_for_mouse_event(event)
         if obj is not None:
             obj.mouseDoubleClickEvent(event)
+    '''
+    # def mousePressEvent(self, event):
+    #     print('grab')
+    #     # self.grabMouse()
+    #     super().mousePressEvent(event)
 
+    # def mouseReleaseEvent(self, event):
+    #     print('ungrab')
+    #     # self.ungrabMouse()
+    #     super().mouseReleaseEvent(event)
+    
     #
     # Private methods
     #
@@ -824,9 +905,9 @@ class QBlockCode(QCachedGraphicsItem):
         self.update_document()
 
         x, y = 0, 0
-        if self._disasm_view.show_address:
-            self._addr_item.setPos(x, y)
-            x += self._addr_item.boundingRect().width() + self.GRAPH_ADDR_SPACING
+        # if self._disasm_view.show_address:
+        #     self._addr_item.setPos(x, y)
+        #     x += self._addr_item.boundingRect().width() + self.GRAPH_ADDR_SPACING
 
         x += self._qtextdoc.size().width()
         y += self._qtextdoc.size().height()

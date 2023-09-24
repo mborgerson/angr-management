@@ -216,7 +216,8 @@ class QZoomableDraggableGraphicsView(QSaveableGraphicsView):
         """
 
         SENSITIVITY = 1.0
-        if self._is_mouse_pressed:
+        if self._is_mouse_pressed and not self.scene().focusItem():
+
             mouse_delta = QVector2D(event.pos() - self._last_screen_pos).length()
             if mouse_delta > SENSITIVITY:
                 self._is_dragging = True

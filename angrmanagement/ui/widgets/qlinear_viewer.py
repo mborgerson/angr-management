@@ -430,6 +430,7 @@ class QLinearDisassembly(QDisassemblyBaseControl, QAbstractScrollArea):
                 self.objects.append(qobject)
                 qobject.setPos(x, y)
                 _l.debug("Adding object %s (height %s) at position %d, %d.", qobject, qobject.height, x, y)
+
                 scene.addItem(qobject)
                 y += qobject.height + self.OBJECT_PADDING
 
@@ -468,7 +469,8 @@ class QLinearDisassembly(QDisassemblyBaseControl, QAbstractScrollArea):
                                     self.disasm_view.infodock,
                                     obj.addr,
                                     ail_obj,
-                                    None,
+                                    {},
+                                    self.scene,
                                     None,
                                 )
                     else:
@@ -481,7 +483,8 @@ class QLinearDisassembly(QDisassemblyBaseControl, QAbstractScrollArea):
                             obj.addr,
                             [obj],
                             {},
-                            None,
+                            self.scene,
+                            None
                         )
                 else:
                     # TODO: Get disassembly even if the function does not exist
