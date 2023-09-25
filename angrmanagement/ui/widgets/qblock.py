@@ -11,7 +11,7 @@ from angrmanagement.config import Conf
 from angrmanagement.utils import get_block_objects, get_label_text, get_out_branches_for_insn
 from angrmanagement.utils.block_objects import FunctionHeader, Label, PhiVariable, Variables
 
-from .qblock_code import QAilObj, QBlockCode, QBlockCodeOptions, QIROpObj
+from .qblock_code import QDisasmBlockObj, QAilObj, QBlockCode, QBlockCodeOptions, QIROpObj
 from .qblock_label import QBlockLabel
 from .qfunction_header import QFunctionHeader
 from .qgraph_object import QCachedGraphicsItem
@@ -195,6 +195,16 @@ class QBlock(QCachedGraphicsItem):
         self.addr_to_insns[bn.addr] = obj
 
     def _init_disassembly_block_widgets(self):
+        code_obj = QDisasmBlockObj(list(get_block_objects(self.disasm, self.cfg_nodes, self.func_addr)), self.instance, self.infodock, parent=self, options=self._block_code_options)
+        obj = QBlockCode(
+            self.addr, code_obj, self._config, self.disasm_view, self.instance, self.infodock, parent=self
+        )
+        code_obj.parent = obj  # Reparent
+        self.objects.append(obj)
+        # self.addr_to_insns[bn.addr] = obj
+
+        return
+
         for obj in get_block_objects(self.disasm, self.cfg_nodes, self.func_addr):
             if isinstance(obj, Instruction):
                 out_branch = get_out_branches_for_insn(self.out_branches, obj.addr)
