@@ -15,6 +15,7 @@ NAME_TO_QTAWESOME_NAME = {
     "docs": "mdi6.book-open-page-variant",
     "file": "mdi.file",
     "file-open": "mdi.folder-open",
+    "file-save": "mdi.floppy",
     "functions-view": "mdi.function",
     "hex-view": "mdi.hexadecimal",
     "log-view": "mdi.message-bulleted",
